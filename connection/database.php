@@ -7,9 +7,9 @@ function database(): PDO
     $config = [
         'host' => getenv('DB_HOST') ?: 'localhost',
         'port' => getenv('DB_PORT') ?: '5432',
-        'dbname' => getenv('DB_NAME') ?: 'banasupro',
-        'user' => getenv('DB_USER') ?: 'banasupro',
-        'password' => getenv('DB_PASSWORD') ?: '',
+        'dbname' => getenv('DB_NAME') ?: 'banasupro2',
+        'user' => getenv('DB_USER') ?: 'postgres',
+        'password' => getenv('DB_PASSWORD') ?: 'hola1010',
         'schema' => getenv('DB_SCHEMA') ?: 'public',
     ];
     $local = __DIR__ . '/database.local.php';

@@ -22,35 +22,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     try {
-        // Consulta segura respetando las mayúsculas y comillas de PostgreSQL
-        $stmt = $pdo->prepare('SELECT "ID", "USUARIO", "PASSWORD", "ID_ROL" FROM usuarios WHERE "USUARIO" = :user AND "ESTADO" = 1 LIMIT 1');
+        // Permite buscar tanto por nombre de usuario
+        $stmt = $pdo->prepare("SELECT ID, USUARIO, PASSWORD, ID_ROL FROM usuarios WHERE USUARIO = :user AND ESTADO = 1 LIMIT 1");
         $stmt->execute([':user' => $usuario]);
         $usuario1 = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Verificar la contraseña cifrada limpiando espacios con trim()
-        if ($usuario1 && password_verify($password, trim($usuario1['PASSWORD']))) {
+        // Verificar la contraseña cifrada
+        if ($usuario1 && password_verify($password, $usuario1['PASSWORD'])) {
             
             // Iniciar sesión exitosa
             session_regenerate_id(true);
             $_SESSION['user_id'] = $usuario1['ID'];
             $_SESSION['user_nombre'] = $usuario1['USUARIO'];
-            $_SESSION['id_rol'] = (int)$usuario1['ID_ROL'];
+            $_SESSION['id_rol'] = $usuario1['ID_ROL'];
 
-            // Redireccionar según el rol del usuario
-            $rol = $_SESSION['id_rol'];
-            
-            if ($rol === 3) {
+            // Redireccionar al dashboard o página principal
+            if ($_SESSION['id_rol']==3) {
                  header("Location: ../modules/conciliacion/depositos.php");
-            } elseif ($rol === 2) {
+            }elseif ($_SESSION['id_rol']==2) {
                  header("Location: ../modules/conciliacion/depositos_revision.php");
-            } elseif ($rol === 4) {
-                 // Redirección exclusiva para tu módulo de Benchmark
-                 header("Location: ../modules/benchmark/benchmark_competidores.php");
-            } elseif ($rol === 5) {
+            }elseif ($_SESSION['id_rol']==4 ) {
                  header("Location: ../modules/conciliacion/depositos_revision.php");
-            } else {
+            }elseif ($_SESSION['id_rol']==5) {
                  header("Location: ../modules/conciliacion/depositos_revision.php");
-            }
+            } elseif ($_SESSION['id_rol'] == 6) { 
+            // Apuntando correctamente a tu carpeta benchmark y archivo
+            header("Location: ../modules/benchmark/benchmark_competidores.php");
+}
             exit;
 
         } else {

@@ -1,54 +1,55 @@
 <?php
-// controllers/benchmark_controllers/benchmark_competidores_controller.php
-header('Content-Type: application/json');
-
-// Incluimos la conexión usando la ruta absoluta basada en __DIR__
-require_once __DIR__ . '/../../connection/connection.php';
-
-<?php
-header('Content-Type: application/json');
+session_start();
 require_once __DIR__ . '/../../connection/connection.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
 }
 
-$action = $_GET['action'] ?? $_POST['action'] ?? '';
+if (empty($_SESSION['user_id'])) {
+    header('Location: ../../index.html?sesion=requerida');
+    exit;
+}
 
-try {
-    if ($action === 'listar') {
-        $stmt = $pdo->query("SELECT id, nombre, COALESCE(ubicacion_referencia, 'N/A') AS ubicacion_referencia, estado FROM benchmark_competidores ORDER BY id DESC");
-        echo json_encode(['status' => 'success', 'data' => $stmt->fetchAll()]);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $id = trim($_POST['id'] ?? '');
+    $nombre = trim($_POST['nombre'] ?? '');
+    $ubicacion = trim($_POST['ubicacion_referencia'] ?? '');
+    $estado = isset($_POST['estado']) ? (int)$_POST['estado'] : 1;
+
+    if (empty($nombre)) {
+        $_SESSION['competidor_resultado'] = [
+            'tipo' => 'danger',
+            'mensaje' => 'El nombre del competidor es obligatorio.'
+        ];
+        header('Location: ../../modules/benchmark/benchmark_competidores.php');
         exit;
     }
 
-    if ($action === 'guardar') {
-        $id = $_POST['id'] ?? '';
-        $nombre = trim($_POST['nombre'] ?? '');
-        $ubicacion = trim($_POST['ubicacion_referencia'] ?? '');
-        $estado = $_POST['estado'] ?? 'activo';
-
-        if (empty($nombre)) {
-            echo json_encode(['status' => 'error', 'message' => 'El nombre es obligatorio.']);
-            exit;
-        }
-
+    try {
         if (empty($id)) {
-            // Insertar
-            $stmt = $pdo->prepare("INSERT INTO benchmark_competidores (nombre, ubicacion_referencia, estado) VALUES (?, ?, ?)");
+            // INSERTAR NUEVO
+            $stmt = $pdo->prepare('INSERT INTO benchmark_competidores (nombre, descripcion, estado) VALUES (?, ?, ?)');
             $stmt->execute([$nombre, $ubicacion, $estado]);
-            $msg = 'Competidor registrado correctamente.';
+            $mensaje = '¡Competidor registrado correctamente!';
         } else {
-            // Actualizar
-            $stmt = $pdo->prepare("UPDATE benchmark_competidores SET nombre = ?, ubicacion_referencia = ?, estado = ? WHERE id = ?");
-            $stmt->execute([$nombre, $ubicacion, $estado, $id]);
-            $msg = 'Competidor actualizado correctamente.';
+            // ACTUALIZAR / EDITAR
+            $stmt = $pdo->prepare('UPDATE benchmark_competidores SET nombre = ?, descripcion = ?, estado = ? WHERE id = ?');
+            $stmt->execute([$nombre, $ubicacion, $estado, (int)$id]);
+            $mensaje = '¡Competidor actualizado correctamente!';
         }
 
-        echo json_encode(['status' => 'success', 'message' => $msg]);
-        exit;
+        $_SESSION['competidor_resultado'] = [
+            'tipo' => 'success',
+            'mensaje' => $mensaje
+        ];
+    } catch (PDOException $e) {
+        $_SESSION['competidor_resultado'] = [
+            'tipo' => 'danger',
+            'mensaje' => 'Error en la base de datos: ' . $e->getMessage()
+        ];
     }
-} catch (PDOException $e) {
-    echo json_encode(['status' => 'error', 'message' => 'Error en la base de datos: ' . $e->getMessage()]);
+
+    header('Location: ../../modules/benchmark/benchmark_competidores.php');
     exit;
 }

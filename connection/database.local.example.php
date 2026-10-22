@@ -3,8 +3,8 @@
 return [
     'host' => 'localhost',
     'port' => '5432',
-    'dbname' => 'banasupro',
-    'user' => 'banasupro',
+    'dbname' => 'postgres',
+    'user' => 'postgres',
     'password' => '',
     'schema' => 'public',
 ];

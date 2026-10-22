@@ -56,7 +56,6 @@ if(!empty($_SESSION['user_id'])) {
                         // Validamos si la URL actual pertenece al módulo de benchmark
                         $esBenchmark = (strpos($_SERVER['SCRIPT_NAME'], 'benchmark') !== false); 
                         ?>
-                        <li class="sidebar-title"><?= $esBenchmark ? 'Benchmark' : 'Conciliación bancaria' ?></li>
                         
                         <?php #    ...::::: SUPER  :::::...
                         if ($_SESSION['id_rol']==5 || $_SESSION['id_rol']==4) {?>
@@ -192,16 +191,16 @@ if(!empty($_SESSION['user_id'])) {
 
                         <?php }  #    ...::::: FIN CONTABLE :::::...?>
                         
-
-                        <!-- ...::::: BENCHMARK :::::... -->
-                        <?php if ((int)($_SESSION['id_rol'] ?? 0) === 4): ?>
-                        <li class="sidebar-title">Benchmark</li>
-                        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_competidores.php' ? 'active' : '' ?>">
-                            <a href="../benchmark/benchmark_competidores.php" class="sidebar-link">
-                                <i class="bi bi-shop"></i><span>Competidores</span>
-                            </a>
-                        </li>
-                        <?php endif; ?>
+                        <!-- ...::::: BENCHMARK (Opción directa sin duplicados) :::::... -->
+        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>
+        <li class="sidebar-title">Benchmark</li>
+        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_competidores.php' ? 'active' : '' ?>">
+            <a href="../benchmark/benchmark_competidores.php" class="sidebar-link">
+                <i class="fas fa-store"></i>
+                <span>Competidores</span>
+            </a>
+        </li>
+        <?php endif; ?>
 
                     </ul>
                 </div>
