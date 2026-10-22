@@ -1,4 +1,7 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 $sidebarUsuarioNombre=(string)($_SESSION['user_nombre']??'Usuario');
 $sidebarUsuarioLogin=$sidebarUsuarioNombre;
 $sidebarUsuarioRol='Rol no disponible';
@@ -49,9 +52,13 @@ if(!empty($_SESSION['user_id'])) {
                 </div>
                 <div class="sidebar-menu">
                     <ul class="menu">
-                        <li class="sidebar-title">Conciliación bancaria</li>
+                        <?php 
+                        // Validamos si la URL actual pertenece al módulo de benchmark
+                        $esBenchmark = (strpos($_SERVER['SCRIPT_NAME'], 'benchmark') !== false); 
+                        ?>
+                        <li class="sidebar-title"><?= $esBenchmark ? 'Benchmark' : 'Conciliación bancaria' ?></li>
                         
-                        <?php #     ...::::: SUPER  :::::...
+                        <?php #    ...::::: SUPER  :::::...
                         if ($_SESSION['id_rol']==5 || $_SESSION['id_rol']==4) {?>
                         <li hidden class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'depositos.php' ? 'active' : '' ?>">
                             <a href="../conciliacion/depositos.php" class="sidebar-link">
@@ -96,16 +103,6 @@ if(!empty($_SESSION['user_id'])) {
                         </li>
                         <?php endif; ?>
 
-
-
-
-                        <!-- <li hidden class="sidebar-title">Ventas</li>
-                        <li hidden class="sidebar-item < //?= basename($_SERVER['SCRIPT_NAME']) === 'listado_articulos.php' ? 'active' : '' ?>">
-                            <a href="../ventas/listado_articulos.php" class="sidebar-link">
-                                <i class="bi bi-grid-fill"></i><span>Articulos</span>
-                            </a>
-                        </li> -->
-
                         <li class="sidebar-title">Configuraciones</li>
 
                         <?php if($sidebarPuedeControl): ?>
@@ -140,13 +137,13 @@ if(!empty($_SESSION['user_id'])) {
                         </li>
                         <?php endif ?>
                             
-                    <?php }  #     ...::::: FIN SUPER :::::...
+                        <?php }  #    ...::::: FIN SUPER :::::...
 
 
 
 
 
-                          #     ...::::: VENTAS:::::...
+                             #    ...::::: VENTAS:::::...
                         if ($_SESSION['id_rol']==3) {?>
                         <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'depositos.php' ? 'active' : '' ?>">
                             <a href="../conciliacion/depositos.php" class="sidebar-link">
@@ -165,11 +162,14 @@ if(!empty($_SESSION['user_id'])) {
                                 <i class="fas fa-users-cog"></i><span>Usuarios</span>
                             </a>
                         </li>
-                    <?php }  #     ...::::: FIN VENTAS :::::...
+                        <?php }  #    ...::::: FIN VENTAS :::::...
 
 
-                    #     ...::::: CONTABLE :::::...
-                     if ($_SESSION['id_rol']==2) {?>
+
+
+
+                             #    ...::::: CONTABLE :::::...
+                         if ($_SESSION['id_rol']==2) {?>
 
 
                          <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'depositos_revision.php' ? 'active' : '' ?>">
@@ -190,8 +190,18 @@ if(!empty($_SESSION['user_id'])) {
                             </a>
                         </li>
 
-                    <?php }  #     ...::::: FIN CONTABLE :::::...?>
-                       
+                        <?php }  #    ...::::: FIN CONTABLE :::::...?>
+                        
+
+                        <!-- ...::::: BENCHMARK :::::... -->
+                        <?php if ((int)($_SESSION['id_rol'] ?? 0) === 4): ?>
+                        <li class="sidebar-title">Benchmark</li>
+                        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_competidores.php' ? 'active' : '' ?>">
+                            <a href="../benchmark/benchmark_competidores.php" class="sidebar-link">
+                                <i class="bi bi-shop"></i><span>Competidores</span>
+                            </a>
+                        </li>
+                        <?php endif; ?>
 
                     </ul>
                 </div>
