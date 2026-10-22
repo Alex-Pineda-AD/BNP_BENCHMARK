@@ -1,0 +1,21 @@
+body{background-color:#fff}
+#auth{height:var(--layout-height);overflow-x:hidden}
+#auth #auth-right{height:100%;background:radial-gradient(ellipse at top right,rgba(139,162,239,.28),transparent 65%),linear-gradient(145deg,#25396f,#435ebe)}
+#auth #auth-left{max-width:36rem;margin:0 auto;padding:3rem 2.5rem}
+#auth #auth-left .auth-title{font-size:2.25rem;line-height:1.2;letter-spacing:-.04rem;margin-bottom:.75rem}
+#auth #auth-left .auth-subtitle{font-size:1.05rem;line-height:1.65;color:#7c8a9d}
+#auth #auth-left .auth-logo{margin-bottom:2.5rem}
+#auth #auth-left .auth-logo img{height:1.6rem}
+#auth #auth-left .form-control-xl{padding:.75rem 1rem .75rem 2.75rem;font-size:1rem;border-color:#dfe5ee;border-radius:.6rem;background-color:#f8fafc}
+#auth #auth-left .form-control-xl:focus{background-color:#fff;border-color:#8296dd;box-shadow:0 0 0 .2rem rgba(67,94,190,.1)}
+#auth #auth-left .form-control-xl~.form-control-icon{padding:0 .85rem}
+#auth #auth-left .form-control-xl~.form-control-icon i{font-size:1.15rem}
+#auth #auth-left .btn-lg{padding:.75rem 1rem;font-size:1rem;font-weight:700;border-radius:.6rem}
+#auth #auth-left .shadow-lg{box-shadow:0 4px 12px rgba(67,94,190,.16)!important}
+#auth #auth-left .mb-5{margin-bottom:1.75rem!important}
+#auth #auth-left .mb-4{margin-bottom:1rem!important}
+#auth #auth-left .mt-5{margin-top:1.75rem!important}
+#auth #auth-left .fs-4{font-size:1rem!important}
+#auth #auth-left .form-check-lg .form-check-input{width:1.15rem;height:1.15rem}
+#auth #auth-left .form-check-lg label{font-size:.9375rem}
+@media screen and (max-width:767px){#auth #auth-left{padding:2rem 1.5rem}}

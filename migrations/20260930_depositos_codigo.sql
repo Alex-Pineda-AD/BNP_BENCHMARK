@@ -1,0 +1,18 @@
+-- Un contador por anio; InnoDB serializa los guardados del mismo anio.
+CREATE TABLE IF NOT EXISTS depositos_correlativos (
+    ANIO SMALLINT UNSIGNED NOT NULL,
+    ULTIMO INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (ANIO)
+) ENGINE=InnoDB;
+
+ALTER TABLE depositos ADD COLUMN IF NOT EXISTS CODIGO VARCHAR(20) DEFAULT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_depositos_codigo ON depositos (CODIGO);
+
+-- Si ya existen codigos, continuar desde el mayor sin renumerarlos.
+INSERT INTO depositos_correlativos (ANIO, ULTIMO)
+SELECT CAST(SUBSTRING(CODIGO, 9, 4) AS UNSIGNED),
+       MAX(CAST(RIGHT(CODIGO, 7) AS UNSIGNED))
+FROM depositos
+WHERE CODIGO REGEXP '^BNP-VTA-[0-9]{4}-[0-9]{7}$'
+GROUP BY SUBSTRING(CODIGO, 9, 4)
+ON DUPLICATE KEY UPDATE ULTIMO = GREATEST(ULTIMO, VALUES(ULTIMO));

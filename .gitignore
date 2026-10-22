@@ -1,0 +1,4 @@
+/files/depositos/*
+!/files/depositos/.htaccess
+
+/connection/database.local.php

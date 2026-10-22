@@ -1,0 +1,52 @@
+-- Ejecutar UNA VEZ sobre las tres tablas proporcionadas por el usuario.
+-- No borra registros. Respaldar la base antes de aplicar cambios de estructura.
+-- ID_ESTADO_CIENTA se conserva con su nombre actual (incluye la errata).
+ALTER TABLE estados_cuenta
+    ADD ID_BANCO BIGINT NULL,
+    ADD NUMERO_CUENTA VARCHAR(50) NULL,
+    ADD IBAN VARCHAR(50) NULL,
+    ADD TIPO_PRODUCTO VARCHAR(255) NULL,
+    ADD PERIODO_DESDE DATE NULL,
+    ADD PERIODO_HASTA DATE NULL,
+    ADD SALDO_FINAL DECIMAL(15,2) NULL,
+    MODIFY NUMERO_CLIENTE VARCHAR(50) NULL,
+    MODIFY PRODUCTO VARCHAR(50) NULL,
+    MODIFY SALDO_INICIAL DECIMAL(15,2) NULL,
+    MODIFY SALDO_LIBROS DECIMAL(15,2) NULL,
+    MODIFY RETENIDOS_DIFERIDOS DECIMAL(15,2) NULL,
+    MODIFY SALDO_DISPONIBLE DECIMAL(15,2) NULL,
+    MODIFY FECHA DATE NULL,
+    MODIFY STBGAV DECIMAL(15,2) NULL,
+    MODIFY STBUNC DECIMAL(15,2) NULL,
+    MODIFY MENSAJE_1 TEXT NULL,
+    MODIFY MENSAJE_2 TEXT NULL,
+    MODIFY MENSAJE_3 TEXT NULL,
+    MODIFY MENSAJE_4 TEXT NULL,
+    MODIFY MENSAJE_5 TEXT NULL,
+    MODIFY MENSAJE_6 TEXT NULL,
+    ADD INDEX (ID_BANCO, NUMERO_CUENTA);
+
+ALTER TABLE transacciones_estado_cuenta
+    MODIFY CODIGO VARCHAR(20) NULL,
+    ADD HORA TIME NULL,
+    ADD AGENCIA VARCHAR(50) NULL,
+    ADD CAJERO VARCHAR(50) NULL,
+    ADD NUMERO_CHEQUE VARCHAR(100) NULL,
+    ADD INDEX (ID_ESTADO_CIENTA);
+
+-- BAC usa las columnas por débito/crédito.
+-- Occidente usa CONCEPTO/CANTIDAD/MONTO (incluye Cheques Pagados).
+-- No todos los documentos tienen un resumen; no se fabrican filas faltantes.
+ALTER TABLE resumen_estado_cuenta
+    MODIFY CODIGO VARCHAR(20) NULL,
+    MODIFY CANTIDAD_DEBITOS INT UNSIGNED NULL,
+    MODIFY MONTO_DEBITOS DECIMAL(15,2) NULL,
+    MODIFY CANTIDAD_CREDITOS INT UNSIGNED NULL,
+    MODIFY MONTO_CREDITOS DECIMAL(15,2) NULL,
+    ADD CONCEPTO VARCHAR(100) NULL,
+    ADD CANTIDAD INT UNSIGNED NULL,
+    ADD MONTO DECIMAL(15,2) NULL,
+    ADD INDEX (ID_ESTADO_CUENTA);
+
+-- No asignamos un banco a registros anteriores sin conocer su origen.
+-- Si Occidente no está en el catálogo, agregarlo desde el mantenimiento de bancos.

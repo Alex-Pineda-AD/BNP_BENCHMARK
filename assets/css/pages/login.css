@@ -1,0 +1,28 @@
+/* Distribucion original del login con espaciado y proporciones uniformes. */
+.login-page { background: #fff; }
+.login-page #auth { height: auto; min-height: 100vh; }
+.login-page #auth > .row { min-height: 100vh; margin: 0; }
+.login-page #auth > .row > div { padding: 0; }
+.login-page #auth > .row > div:first-child { display: flex; align-items: center; }
+.login-page #auth #auth-left { width: 100%; max-width: 490px; padding: 40px; }
+.login-page #auth #auth-left .auth-logo { margin-bottom: 40px; }
+.login-page .login-brand-title { display: inline-block; color: #25396f; font-size: 1.65rem; font-weight: 800; line-height: 1.3; }
+.login-page #auth #auth-left .auth-title { font-size: 1.8rem; color: #25396f; }
+.login-page #auth #auth-left .auth-subtitle { font-size: .98rem; margin-bottom: 28px; }
+.login-page .form-label { font-size: .88rem; font-weight: 700; color: #304765; }
+.login-page #auth #auth-left .form-control-xl { min-height: 50px; }
+.login-page #login-password { padding-right: 3rem !important; }
+.login-page .login-show-password { position: absolute; right: 4px; top: 4px; width: 42px; height: 42px; border: 0; border-radius: 8px; background: transparent; color: #607391; z-index: 2; }
+.login-page .login-show-password:hover { background: #eaf0f8; }
+.login-page .login-show-password:focus-visible { outline: 2px solid #435ebe; }
+.login-page .login-help { margin: 26px 0 0; font-size: .85rem; line-height: 1.7; color: #758197; }
+.login-page #auth #auth-right { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 48px; }
+.login-page .login-brand-logo { display: block; width: 90%; max-width: 680px; height: auto; object-fit: contain; }
+@media (max-width: 991px) {
+    .login-page #auth #auth-left { padding: 36px 28px; }
+}
+@media (max-width: 480px) {
+    .login-page #auth #auth-left { padding: 28px 24px; }
+    .login-page #auth #auth-left .auth-logo { margin-bottom: 30px; }
+    .login-page .login-brand-title { font-size: 1.5rem; }
+}
