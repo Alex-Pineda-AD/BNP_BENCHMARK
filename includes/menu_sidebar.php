@@ -209,6 +209,16 @@ if(!empty($_SESSION['user_id'])) {
                         </li>
                         <?php endif; ?>
 
+                        <!-- ...::::: BENCHMARK (Opción directa sin duplicados) :::::... -->
+                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>                                 
+                        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_tabla_comparativa.php' ? 'active' : '' ?>">
+                            <a href="../benchmark/benchmark_tabla_comparativa.php" class="sidebar-link">
+                                <i class="fas fa-store"></i>
+                                <span>Tabla Comparativa de Precios</span>
+                            </a>
+                        </li>
+                        <?php endif; ?>
+
                     </ul>
                 </div>
                 <div class="sidebar-session-footer" aria-label="Usuario de la sesión">

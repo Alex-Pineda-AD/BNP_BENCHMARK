@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $observaciones_general = trim($_POST['observaciones'] ?? '');
     $id_usuario = $_SESSION['user_id'];
 
-    // Capturar los arreglos dinámicos enviados por las filas del modal
+    // Capturar los arreglos dinámicos enviados por las filas del modal (sin precio base)
     $productosSeleccionados = $_POST['id_producto'] ?? [];
     $nombresComp = $_POST['nombre_competencia'] ?? [];
     $preciosComp = $_POST['precio_competencia'] ?? [];
@@ -53,13 +53,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $id_levantamiento = $pdo->lastInsertId();
 
-        // 2. Preparar la consulta para buscar el precio de referencia oficial y guardar el detalle
-        $stmtPrecioRef = $pdo->prepare('SELECT precio_referencia FROM benchmark_productos WHERE id = ?');
-        
+        // 2. Preparar la consulta de inserción de detalle (sin precio_base_referencia)
         $stmtD = $pdo->prepare('
             INSERT INTO benchmark_precios_detalle 
-            (id_levantamiento, id_producto, precio_base_referencia, nombre_producto_competencia, precio_competencia, observaciones) 
-            VALUES (?, ?, ?, ?, ?, ?)
+            (id_levantamiento, id_producto, nombre_producto_competencia, precio_competencia, observaciones) 
+            VALUES (?, ?, ?, ?, ?)
         ');
 
         $registrados = 0;
@@ -70,18 +68,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Validar que se haya seleccionado un producto y escrito un precio válido
             if ($idProdLimpio !== '' && $precioLimpio !== '' && is_numeric($precioLimpio)) {
                 
-                // Consultar el precio de referencia actual del producto base Softland
-                $stmtPrecioRef->execute([(int)$idProdLimpio]);
-                $prodData = $stmtPrecioRef->fetch(PDO::FETCH_ASSOC);
-                $precioBaseRef = (float)($prodData['precio_referencia'] ?? 0.00);
-
                 $nombreComp = trim($nombresComp[$index] ?? '');
                 $obsItem = trim($obsItems[$index] ?? '');
 
                 $stmtD->execute([
                     $id_levantamiento,
                     (int)$idProdLimpio,
-                    $precioBaseRef,
                     $nombreComp,
                     (float)$precioLimpio,
                     $obsItem

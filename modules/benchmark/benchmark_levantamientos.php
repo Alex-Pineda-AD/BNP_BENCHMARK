@@ -97,7 +97,7 @@ function escapar($valor) {
             </header>
 
             <div class="page-heading">
-                <h3>Comparativo y Levantamiento de Precios</h3>
+                <h3>Historial de Levantamientos y Productos por Usuario</h3>
             </div>
 
             <div class="page-content">

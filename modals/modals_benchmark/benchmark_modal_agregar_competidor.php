@@ -1,6 +1,6 @@
 <!-- Modal Único para Agregar / Editar Competidor -->
 <div class="modal fade" id="modalCompetidor" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-md modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-primary">
                 <h5 class="modal-title text-white" id="modalCompetidorTitulo">Nuevo Competidor</h5>

@@ -1,4 +1,4 @@
-<?php 
+<?php
 session_start();
 header('Cache-Control: no-store');
 
@@ -86,41 +86,50 @@ function escapar($valor) {
                             <i class="fas fa-store"></i> &nbsp; Nuevo Competidor
                         </button>
                     </div>
-                    <div class="card-body table-responsive">
-                        <table class="table table-striped" id="table1">
-                            <thead>
-                                <tr>
-                                    <th>N.</th>
-                                    <th>NOMBRE</th>
-                                    <th>UBICACIÓN / REFERENCIA</th>
-                                    <th>ESTADO</th>
-                                    <th class="text-center">ACCIONES</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php 
-                            $vr_correlativo = 0;
-                            foreach ($competidores as $row): 
-                                $vr_correlativo++;
-                                $nombreRow = $row['nombre'] ?? $row['NOMBRE'] ?? '';
-                                $ubicacionRow = $row['ubicacion_referencia'] ?? $row['UBICACION_REFERENCIA'] ?? 'N/A';
-                                $estadoTextoRow = $row['ESTADO_TEXTO'] ?? ($row['estado'] == 1 ? 'Activo' : 'Inactivo');
-                                $bgRow = $row['BG'] ?? ($row['estado'] == 1 ? 'badge bg-success' : 'badge bg-danger');
-                            ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($vr_correlativo, ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td><?= escapar($nombreRow) ?></td>
-                                    <td><?= escapar($ubicacionRow) ?></td>
-                                    <td><span class="<?= escapar($bgRow) ?>"><?= escapar($estadoTextoRow) ?></span></td>
-                                    <td class="text-center">
-                                        <button type="button" class="btn btn-sm btn-warning text-dark" onclick='editarCompetidor(<?= htmlspecialchars(json_encode($row, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>)'>
-                                            <i class="fas fa-edit"></i> Editar
-                                        </button>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                    <div class="card-body px-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-borderless align-middle w-100 mb-0" id="table1">
+                                <thead>
+                                    <tr>
+                                        <th class="text-start ps-4">N.</th>
+                                        <th class="text-start">NOMBRE</th>
+                                        <th class="text-start">UBICACIÓN / REFERENCIA</th>
+                                        <th class="text-center">ESTADO</th>
+                                        <th class="text-center">ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <?php 
+                                $vr_correlativo = 0;
+                                if (empty($competidores)): 
+                                ?>
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">No hay competidores registrados.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($competidores as $row): 
+                                        $vr_correlativo++;
+                                        $nombreRow = $row['nombre'] ?? $row['NOMBRE'] ?? '';
+                                        $ubicacionRow = $row['ubicacion_referencia'] ?? $row['UBICACION_REFERENCIA'] ?? 'N/A';
+                                        $estadoTextoRow = $row['ESTADO_TEXTO'] ?? ($row['estado'] == 1 ? 'Activo' : 'Inactivo');
+                                        $bgRow = $row['BG'] ?? ($row['estado'] == 1 ? 'badge bg-success' : 'badge bg-danger');
+                                    ?>
+                                        <tr>
+                                            <td class="text-start ps-4"><?= htmlspecialchars($vr_correlativo, ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td class="text-start"><strong><?= escapar($nombreRow) ?></strong></td>
+                                            <td class="text-start"><?= escapar($ubicacionRow) ?></td>
+                                            <td class="text-center"><span class="<?= escapar($bgRow) ?>"><?= escapar($estadoTextoRow) ?></span></td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-warning text-dark" onclick='editarCompetidor(<?= htmlspecialchars(json_encode($row, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>)'>
+                                                    <i class="fas fa-edit"></i> Editar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -135,7 +144,9 @@ function escapar($valor) {
     <script src="../../assets/vendors/simple-datatables/simple-datatables.js"></script>
     <script>
         let table1 = document.querySelector('#table1');
-        let dataTable = new simpleDatatables.DataTable(table1);
+        if (table1) {
+            let dataTable = new simpleDatatables.DataTable(table1);
+        }
     </script>
     <script src="../../assets/js/main.js"></script>
     <script src="../../js/benchmark_js/benchmark_competidores.js?v=<?= filemtime(__DIR__ . '/../../js/benchmark_js/benchmark_competidores.js') ?>"></script>
