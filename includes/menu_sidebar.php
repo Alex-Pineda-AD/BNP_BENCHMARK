@@ -164,9 +164,6 @@ if(!empty($_SESSION['user_id'])) {
                         <?php }  #    ...::::: FIN VENTAS :::::...
 
 
-
-
-
                              #    ...::::: CONTABLE :::::...
                          if ($_SESSION['id_rol']==2) {?>
 
@@ -192,15 +189,25 @@ if(!empty($_SESSION['user_id'])) {
                         <?php }  #    ...::::: FIN CONTABLE :::::...?>
                         
                         <!-- ...::::: BENCHMARK (Opción directa sin duplicados) :::::... -->
-        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>
-        <li class="sidebar-title">Benchmark</li>
-        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_competidores.php' ? 'active' : '' ?>">
-            <a href="../benchmark/benchmark_competidores.php" class="sidebar-link">
-                <i class="fas fa-store"></i>
-                <span>Competidores</span>
-            </a>
-        </li>
-        <?php endif; ?>
+                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>                                  
+                        <li class="sidebar-title">Benchmark</li>
+                        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_competidores.php' ? 'active' : '' ?>">
+                            <a href="../benchmark/benchmark_competidores.php" class="sidebar-link">
+                                <i class="fas fa-store"></i>
+                                <span>Competidores</span>
+                            </a>
+                        </li>
+                        <?php endif; ?>
+
+                       <!-- ...::::: BENCHMARK (Opción directa sin duplicados) :::::... -->
+                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>                                  
+                        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_levantamientos.php' ? 'active' : '' ?>">
+                            <a href="../benchmark/benchmark_levantamientos.php" class="sidebar-link">
+                                <i class="fas fa-store"></i>
+                                <span>Levantamiento de productos</span>
+                            </a>
+                        </li>
+                        <?php endif; ?>
 
                     </ul>
                 </div>
