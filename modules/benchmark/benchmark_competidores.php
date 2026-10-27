@@ -13,9 +13,15 @@ if (empty($_SESSION['user_id'])) {
     exit;
 }
 
-// Capturar mensaje flash de éxito o error
+// Capturar mensaje flash de éxito o error (se muestra con SweetAlert2)
 $resultado = $_SESSION['competidor_resultado'] ?? null;
 unset($_SESSION['competidor_resultado']);
+
+$iconoSwal = 'error';
+if ($resultado) {
+    $tipoFlash = $resultado['tipo'] ?? 'danger';
+    $iconoSwal = $tipoFlash === 'success' ? 'success' : ($tipoFlash === 'warning' ? 'warning' : 'error');
+}
 
 $competidores = [];
 $errorConsulta = null;
@@ -63,28 +69,15 @@ function escapar($valor) {
             <div class="page-heading">
                 <div class="page-title">
                     <div class="row">
-                        <div class="col-12 col-md-8 order-md-1 order-last">
+                        <div class="col-12">
                             <h3><i class="fas fa-building text-primary"></i> Competidores</h3>
                             <p class="text-subtitle text-muted">Administrá los competidores activos para el levantamiento de precios.</p>
-                        </div>
-                        <div class="col-12 col-md-4 order-md-2 order-first text-md-end mt-2 mt-md-0">
-                            <button type="button" class="btn btn-primary" onclick="abrirModalCompetidor()">
-                                <i class="fas fa-store"></i> &nbsp; Nuevo Competidor
-                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="page-content">
-                <!-- Alerta Flash Dinámica con desvanecimiento automático -->
-                <?php if ($resultado): ?>
-                    <div class="alert alert-<?= escapar($resultado['tipo']) ?> alert-dismissible fade show" role="alert">
-                        <?= escapar($resultado['mensaje']) ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                <?php endif; ?>
-
                 <?php if ($errorConsulta): ?>
                     <div class="alert alert-danger alert-dismissible fade show" role="alert">
                         <?= escapar($errorConsulta) ?>
@@ -93,7 +86,14 @@ function escapar($valor) {
                 <?php endif; ?>
 
                 <section class="card">
-                    <div class="card-body px-0">
+                    <div class="card-body">
+                        <!-- Botón a la izquierda, igual que en Usuarios -->
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-primary" onclick="abrirModalCompetidor()">
+                                <i class="fas fa-store"></i> &nbsp;Competidor
+                            </button>
+                        </div>
+
                         <div class="table-responsive">
                             <table class="table table-striped table-borderless align-middle w-100 mb-0" id="table1">
                                 <thead>
@@ -156,9 +156,29 @@ function escapar($valor) {
         }
     </script>
     <script src="../../assets/js/main.js"></script>
+    <!-- SweetAlert2 (si tu plantilla ya lo trae local, usa esa ruta en lugar del CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="../../js/benchmark_js/benchmark_competidores.js?v=<?= filemtime(__DIR__ . '/../../js/benchmark_js/benchmark_competidores.js') ?>"></script>
 
+    <?php if ($resultado): ?>
     <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const esExito = <?= json_encode($iconoSwal === 'success') ?>;
+            Swal.fire({
+                icon: <?= json_encode($iconoSwal) ?>,
+                title: esExito ? '¡Listo!' : 'No se pudo guardar',
+                text: <?= json_encode((string)($resultado['mensaje'] ?? ''), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                confirmButtonColor: '#435ebe',
+                confirmButtonText: 'Aceptar',
+                timer: esExito ? 3000 : undefined,
+                timerProgressBar: esExito
+            });
+        });
+    </script>
+    <?php endif; ?>
+
+    <script>
+        // Desvanece la alerta de error de consulta (si la hay)
         document.addEventListener('DOMContentLoaded', function () {
             const alerta = document.querySelector('.alert');
             if (alerta) {

@@ -1,181 +1,194 @@
 let productosGlobal = [];
 
-document.addEventListener('DOMContentLoaded', function () {
-    const jsonEl = document.getElementById('jsonProductos');
-    if (jsonEl) {
-        try {
-            productosGlobal = JSON.parse(jsonEl.textContent.trim());
-        } catch (e) {
-            console.error("Error al parsear los productos JSON:", e);
-            productosGlobal = [];
-        }
-    }
+const COLOR_PRIMARIO = '#435ebe'; // color primario de Mazer
 
-    const modalEl = document.getElementById('modalLevantamiento');
-    if (modalEl) {
-        modalEl.addEventListener('show.bs.modal', function () {
-            const contenedor = document.getElementById('contenedorFilas');
-            if (contenedor && contenedor.children.length === 0) {
-                agregarFilaProducto();
-            }
-        });
-    }
-});
-
-function abrirModalLevantamiento() {
-    const form = document.getElementById('formLevantamiento');
-    if (form) form.reset();
-
-    const contenedor = document.getElementById('contenedorFilas');
-    if (contenedor) {
-        contenedor.innerHTML = '';
-        agregarFilaProducto();
-    }
-
-    const modalEl = document.getElementById('modalLevantamiento');
-    if (modalEl) {
-        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-        modal.show();
-    }
+function obtenerEndpointGuardarFila() {
+    const base = (typeof BASE_URL !== 'undefined')
+        ? BASE_URL
+        : window.location.origin + '/BNP-Benchmark';
+    return base + '/controllers/benchmark_controllers/benchmark_guardar_fila_controller.php';
 }
 
-function agregarFilaProducto() {
-    const contenedor = document.getElementById('contenedorFilas');
-    if (!contenedor) return;
-
-    let opcionesHtml = '<option value="">-- Seleccionar Artículo Banasupro (30 clave) --</option>';
-    if (Array.isArray(productosGlobal) && productosGlobal.length > 0) {
-        productosGlobal.forEach(p => {
-            let idp = p.id || p.ID;
-            let cod = (p.codigo || p.CODIGO) ? `[${p.codigo || p.CODIGO}] ` : '';
-            let nombrep = p.nombre_producto || p.NOMBRE_PRODUCTO || '';
-            let gramaje = (p.gramaje || p.GRAMAJE) ? ` (${p.gramaje || p.GRAMAJE})` : '';
-            let precio = parseFloat(p.precio_referencia || p.PRECIO_REFERENCIA || 0).toFixed(2);
-            opcionesHtml += `<option value="${idp}" data-precio="${precio}">${cod}${nombrep}${gramaje} • L. ${precio}</option>`;
-        });
-    }
-
-    const card = document.createElement('div');
-    card.className = 'card border mb-2 shadow-sm fila-producto';
-    card.innerHTML = `
-        <div class="card-header py-1 px-3 bg-light d-flex justify-content-between align-items-center">
-            <span class="small fw-bold text-secondary">
-                <i class="bi bi-tag-fill text-primary"></i> <span class="numero-item">Item</span>
-            </span>
-            <button type="button" class="btn btn-danger btn-sm py-0 px-2" onclick="eliminarFila(this)" title="Quitar este producto">
-                <i class="fas fa-trash-alt"></i> Quitar
-            </button>
-        </div>
-        <div class="card-body p-2">
-            <!-- 1. Artículo Banasupro -->
-            <div class="mb-2">
-                <label class="form-label small fw-bold mb-1 text-muted">Artículo Banasupro <span class="text-danger">*</span></label>
-                <select name="id_producto[]" class="form-select form-select-sm select-articulo" required onchange="actualizarFilaSoftland(this)">
-                    ${opcionesHtml}
-                </select>
-            </div>
-
-            <!-- 2. Comparativa de Precios en dos columnas -->
-            <div class="row g-2 mb-2">
-                <div class="col-6">
-                    <label class="form-label small fw-bold mb-1 text-muted">Precio Banasupro</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-light">L.</span>
-                        <input type="text" class="form-control form-control-sm bg-light text-end fw-bold label-precio-bana" readonly value="0.00">
-                        <input type="hidden" name="precio_banasupro_ref[]" class="input-precio-bana" value="0.00">
-                    </div>
-                </div>
-                <div class="col-6">
-                    <label class="form-label small fw-bold mb-1 text-danger">Precio Competidor *</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white">L.</span>
-                        <input type="number" step="0.01" min="0" name="precio_competencia[]" class="form-control form-control-sm text-end fw-bold input-precio-comp" placeholder="0.00" required oninput="calcularDiferenciaFila(this)">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. Indicador de Diferencia -->
-            <div class="d-flex justify-content-between align-items-center mb-2 px-2 bg-light rounded py-1">
-                <span class="small text-muted" style="font-size: 0.78rem;">Comparativa:</span>
-                <span class="badge bg-secondary badge-diferencia">Pendiente de precio</span>
-            </div>
-
-            <!-- 4. Observaciones opcionales -->
-            <div>
-                <input type="text" name="observaciones_item[]" class="form-control form-control-sm" placeholder="Observaciones / Notas (Opcional)">
-            </div>
-        </div>
-    `;
-
-    contenedor.appendChild(card);
-    renumerarItems();
+function formatoLempiras(valor) {
+    return 'L. ' + Number(valor).toFixed(2);
 }
 
-function eliminarFila(btn) {
-    const card = btn.closest('.fila-producto');
-    const contenedor = card.parentElement;
-    card.remove();
-    renumerarItems();
-    if (contenedor && contenedor.children.length === 0) {
-        agregarFilaProducto();
-    }
+function escaparHtml(texto) {
+    const div = document.createElement('div');
+    div.textContent = texto;
+    return div.innerHTML;
 }
 
-function renumerarItems() {
-    const items = document.querySelectorAll('.fila-producto .numero-item');
-    items.forEach((span, index) => {
-        span.textContent = `Producto #${index + 1}`;
+function restaurarBoton(button) {
+    button.disabled = false;
+    button.innerHTML = '<i class="fas fa-save"></i>';
+}
+
+function avisar(icono, titulo, texto) {
+    return Swal.fire({
+        icon: icono,
+        title: titulo,
+        text: texto,
+        confirmButtonColor: COLOR_PRIMARIO,
+        confirmButtonText: 'Entendido'
     });
-    // Actualizar el badge contador en el modal
-    const contador = document.getElementById('contadorFilas');
-    if (contador) contador.textContent = items.length;
 }
 
-function actualizarFilaSoftland(selectEl) {
-    const card = selectEl.closest('.fila-producto');
-    const opt = selectEl.options[selectEl.selectedIndex];
-    const precio = parseFloat(opt.getAttribute('data-precio') || 0).toFixed(2);
-
-    const labelBana = card.querySelector('.label-precio-bana');
-    const inputBana = card.querySelector('.input-precio-bana');
-    if (labelBana) labelBana.value = precio;
-    if (inputBana) inputBana.value = precio;
-
-    const inputComp = card.querySelector('.input-precio-comp');
-    if (inputComp) {
-        calcularDiferenciaFila(inputComp);
-        if (selectEl.value !== '') {
-            inputComp.focus();
-        }
-    }
-}
-
-function calcularDiferenciaFila(inputComp) {
-    const card = inputComp.closest('.fila-producto');
-    const precioBana = parseFloat(card.querySelector('.input-precio-bana').value || 0);
-    const precioComp = parseFloat(inputComp.value || 0);
-    const badge = card.querySelector('.badge-diferencia');
-    if (!badge) return;
-
-    if (!precioComp || precioComp <= 0 || !precioBana || precioBana <= 0) {
-        badge.className = 'badge bg-secondary badge-diferencia';
-        badge.textContent = 'Pendiente de precio';
-        badge.title = 'Ingrese precio para calcular';
+// Paso 1: validar y pedir confirmación mostrando ambos precios
+async function guardarFilaIndividual(button, idProducto, precioBanasupro) {
+    const row = button.closest('.fila-producto') || button.closest('tr');
+    if (!row) {
+        avisar('error', 'Error', 'No se encontró la fila del producto. Recarga la página con Ctrl+F5.');
         return;
     }
 
-    const diff = precioComp - precioBana;
-    if (diff > 0) {
-        // La competencia cuesta más -> En Banasupro es MÁS BARATO -> VERDE
-        badge.className = 'badge bg-success badge-diferencia text-white';
-        badge.innerHTML = `<i class="bi bi-check-circle"></i> Banasupro más barato (Ahorro: L. ${diff.toFixed(2)})`;
-    } else if (diff < 0) {
-        // La competencia cuesta menos -> En Banasupro es MÁS CARO -> ROJO
-        const difBanaCara = Math.abs(diff).toFixed(2);
-        badge.className = 'badge bg-danger badge-diferencia text-white';
-        badge.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Banasupro más caro (+L. ${difBanaCara})`;
-    } else {
-        badge.className = 'badge bg-info text-dark badge-diferencia';
-        badge.textContent = 'Mismo Precio (L. 0.00)';
+    const selectCompetidor = document.getElementById('global_id_competidor');
+    const idCompetidor = selectCompetidor.value;
+    const observacionesVisita = document.getElementById('global_observaciones').value;
+
+    const inputPrecio = row.querySelector('.input-precio-comp');
+    const precioCompetencia = parseFloat(inputPrecio.value);
+    const observacionesItem = row.querySelector('.input-obs-comp').value;
+
+    if (!idCompetidor) {
+        await avisar('warning', 'Falta el competidor', 'Seleccione primero un competidor en la parte superior.');
+        selectCompetidor.focus();
+        return;
     }
+    if (isNaN(precioCompetencia) || precioCompetencia <= 0) {
+        await avisar('warning', 'Precio no válido', 'Ingrese un precio válido para la competencia en este producto.');
+        inputPrecio.focus();
+        return;
+    }
+
+    const nombreProducto = (row.querySelector('.nombre-producto, strong')?.textContent || 'este producto').trim();
+    const nombreCompetidor = selectCompetidor.options[selectCompetidor.selectedIndex].text;
+
+    const diferencia = precioCompetencia - precioBanasupro;
+    const signo = diferencia > 0 ? '+' : (diferencia < 0 ? '-' : '');
+    const porcentaje = precioBanasupro > 0
+        ? ' (' + signo + Math.abs((diferencia / precioBanasupro) * 100).toFixed(1) + '%)'
+        : '';
+    // Verde: la competencia vende más caro que nosotros. Rojo: más barato.
+    const claseDif = diferencia > 0 ? 'text-success' : (diferencia < 0 ? 'text-danger' : 'text-muted');
+
+    const confirmacion = await Swal.fire({
+        icon: 'question',
+        title: '¿Deseas comparar estos precios?',
+        html:
+            '<div class="text-start">' +
+            '<p class="mb-2"><strong>' + escaparHtml(nombreProducto) + '</strong><br>' +
+            '<small class="text-muted">Competidor: ' + escaparHtml(nombreCompetidor) + '</small></p>' +
+            '<table class="table table-sm mb-0">' +
+            '<tr><td>Precio Banasupro</td><td class="text-end fw-bold">' + formatoLempiras(precioBanasupro) + '</td></tr>' +
+            '<tr><td>Precio Competencia</td><td class="text-end fw-bold">' + formatoLempiras(precioCompetencia) + '</td></tr>' +
+            '<tr><td>Diferencia</td><td class="text-end fw-bold ' + claseDif + '">' +
+            signo + formatoLempiras(Math.abs(diferencia)) + porcentaje + '</td></tr>' +
+            '</table>' +
+            '</div>',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: COLOR_PRIMARIO,
+        reverseButtons: true
+    });
+
+    if (!confirmacion.isConfirmed) {
+        return; // Cancelado: no se guarda nada
+    }
+
+    enviarGuardado(button, row, {
+        id_competidor: idCompetidor,
+        observaciones_visita: observacionesVisita,
+        id_producto: idProducto,
+        precio_banasupro: precioBanasupro,
+        precio_competencia: precioCompetencia,
+        observaciones_item: observacionesItem,
+        actualizar: false
+    }, nombreProducto, nombreCompetidor);
+}
+
+// Paso 2: enviar al servidor; si ya existe un precio, pedir confirmación para actualizar
+function enviarGuardado(button, row, payload, nombreProducto, nombreCompetidor) {
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    fetch(obtenerEndpointGuardarFila(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en el servidor: ' + response.status);
+            }
+            return response.text();
+        })
+        .then(async texto => {
+            let data;
+            try {
+                data = JSON.parse(texto);
+            } catch (e) {
+                console.error('Respuesta no válida del servidor:', texto);
+                throw new Error('El servidor no devolvió JSON válido.');
+            }
+
+            // Ya existe un precio para este producto y competidor en la visita de hoy
+            if (!data.success && data.existe) {
+                const actualizar = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Ya existe un precio',
+                    html:
+                        '<div class="text-start">' +
+                        '<p class="mb-2">Ya existe un precio para este artículo con este competidor.</p>' +
+                        '<p class="mb-2"><strong>' + escaparHtml(nombreProducto) + '</strong><br>' +
+                        '<small class="text-muted">Competidor: ' + escaparHtml(nombreCompetidor) + '</small></p>' +
+                        '<table class="table table-sm mb-2">' +
+                        '<tr><td>Precio registrado</td><td class="text-end fw-bold">' + formatoLempiras(data.precio_actual) + '</td></tr>' +
+                        '<tr><td>Precio nuevo</td><td class="text-end fw-bold text-primary">' + formatoLempiras(payload.precio_competencia) + '</td></tr>' +
+                        '</table>' +
+                        '<p class="mb-0">¿Deseas actualizar el precio?</p>' +
+                        '</div>',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, actualizar',
+                    cancelButtonText: 'No, regresar',
+                    confirmButtonColor: COLOR_PRIMARIO,
+                    reverseButtons: true
+                });
+
+                if (actualizar.isConfirmed) {
+                    payload.actualizar = true;
+                    enviarGuardado(button, row, payload, nombreProducto, nombreCompetidor);
+                } else {
+                    restaurarBoton(button); // No actualiza, regresa
+                }
+                return;
+            }
+
+            if (data.success) {
+                row.style.backgroundColor = '#d1e7dd'; // verde suave de éxito
+                button.classList.remove('btn-outline-success');
+                button.classList.add('btn-success');
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => { button.disabled = false; }, 2000);
+
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: data.message || 'Precio guardado correctamente',
+                    showConfirmButton: false,
+                    timer: 2500,
+                    timerProgressBar: true
+                });
+            } else {
+                await avisar('error', 'Error al guardar', data.message || 'Desconocido');
+                restaurarBoton(button);
+            }
+        })
+        .catch(error => {
+            console.error('Error detallado:', error);
+            avisar('error', 'Error técnico', 'No se pudo guardar. Revisa la consola (F12).');
+            restaurarBoton(button);
+        });
 }

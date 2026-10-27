@@ -24,29 +24,7 @@ if (!in_array($rolUsuario, [5, 6])) {
 $resultado = $_SESSION['levantamiento_resultado'] ?? null;
 unset($_SESSION['levantamiento_resultado']);
 
-$levantamientos = [];
-$errorConsulta = null;
-
-try {
-    $consulta = $pdo->query('
-        SELECT 
-            L.id AS id,
-            C.nombre AS competidor,
-            COALESCE(U.nombre_completo, \'Sistema\') AS usuario,
-            L.fecha_levantamiento AS fecha_levantamiento,
-            COALESCE(L.observaciones, \'N/A\') AS observaciones,
-            (SELECT COUNT(*) FROM benchmark_precios_detalle D WHERE D.id_levantamiento = L.id) AS total_items
-        FROM benchmark_levantamientos L
-        INNER JOIN benchmark_competidores C ON L.id_competidor = C.id
-        LEFT JOIN usuarios U ON L.id_usuario = U.id
-        ORDER BY L.id DESC
-    ');
-    $levantamientos = $consulta->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $errorConsulta = 'No se pudieron consultar los levantamientos de precios.';
-}
-
-// Cargar competidores activos para el listbox del modal
+// Cargar competidores activos para el listbox superior
 $competidores = [];
 try {
     $stmtC = $pdo->query("SELECT id AS id, nombre AS nombre FROM benchmark_competidores WHERE estado = 1 ORDER BY nombre ASC");
@@ -92,7 +70,6 @@ try {
     ";
     $softlandProds = $pdoSql->query($sqlSoftland)->fetchAll(PDO::FETCH_ASSOC);
 
-    // Sincronizar con PostgreSQL benchmark_productos para obtener los IDs reales (evitar violación de FK)
     $stmtSync = $pdo->prepare("
         INSERT INTO benchmark_productos (codigo, nombre_producto, categoria, gramaje, precio_referencia, estado)
         VALUES (?, ?, ?, ?, ?, 1)
@@ -124,7 +101,6 @@ try {
         ];
     }
 } catch (Throwable $e) {
-    // Si SQL Server no responde, cargar directamente desde la tabla local de PostgreSQL
     try {
         $stmtP = $pdo->query("
             SELECT 
@@ -153,10 +129,16 @@ function escapar($valor) {
 <html lang="es">
 <head>
     <?php include '../../includes/head.php'; ?>
-    <link rel="stylesheet" href="../../assets/vendors/simple-datatables/style.css">
+    <!-- Iconos FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
+    <!-- Definir la ruta base absoluta para evitar problemas en localhost -->
+    <script>
+        const BASE_URL = window.location.origin + '/BNP-Benchmark';
+    </script>
+
     <div id="app">
         <div id="sidebar" class="active">
             <?php include('../../includes/menu_sidebar.php'); ?>
@@ -168,94 +150,140 @@ function escapar($valor) {
                 </a>
             </header>
 
-            <div class="page-heading">
-                <div class="page-title">
-                    <div class="row">
-                        <div class="col-12 col-md-8 order-md-1 order-last">
+            <div class="container-fluid px-2 px-md-4">
+                <div class="page-heading mb-3">
+                    <div class="row align-items-center">
+                        <div class="col-12">
                             <h3><i class="fas fa-clipboard-list text-primary"></i> Levantamiento de Precios</h3>
-                            <p class="text-subtitle text-muted">Historial de levantamientos registrados por usuario contra la competencia.</p>
-                        </div>
-                        <div class="col-12 col-md-4 order-md-2 order-first text-md-end mt-2 mt-md-0">
-                            <button type="button" class="btn btn-primary" onclick="abrirModalLevantamiento()">
-                                <i class="fas fa-plus-circle"></i> &nbsp; Nuevo Levantamiento
-                            </button>
+                            <p class="text-subtitle text-muted">Módulo de captura masiva directa contra la competencia.</p>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="page-content">
-                <!-- Alerta Flash Dinámica con desvanecimiento automático -->
-                <?php if ($resultado): ?>
-                    <div class="alert alert-<?= escapar($resultado['tipo']) ?> alert-dismissible fade show" role="alert">
-                        <?= escapar($resultado['mensaje']) ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                <?php endif; ?>
+                <div class="page-content">
+                    <!-- Alerta Flash Dinámica -->
+                    <?php if ($resultado): ?>
+                        <div class="alert alert-<?= escapar($resultado['tipo']) ?> alert-dismissible fade show" role="alert">
+                            <?= escapar($resultado['mensaje']) ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <?php endif; ?>
 
-                <?php if ($errorConsulta): ?>
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <?= escapar($errorConsulta) ?>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                <?php endif; ?>
+                    <!-- Tarjeta Superior: Selección de Competidor y Observaciones -->
+                    <section class="card mb-3 shadow-sm border-0">
+                        <div class="card-body bg-light rounded py-3">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-12 col-md-5">
+                                    <label for="global_id_competidor" class="form-label small fw-bold text-primary mb-1">
+                                        <i class="fas fa-store"></i> Competidor en Curso <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select form-select-sm" id="global_id_competidor" required>
+                                        <option value="">-- Seleccionar Competidor --</option>
+                                        <?php if (!empty($competidores)): ?>
+                                            <?php foreach ($competidores as $comp): 
+                                                $idComp = $comp['id'] ?? $comp['ID'] ?? 0;
+                                                $nombreComp = $comp['nombre'] ?? $comp['NOMBRE'] ?? '';
+                                            ?>
+                                                <option value="<?= $idComp ?>"><?= escapar($nombreComp) ?></option>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-7">
+                                    <label for="global_observaciones" class="form-label small fw-bold text-muted mb-1">Observaciones Visita</label>
+                                    <input type="text" class="form-control form-control-sm" id="global_observaciones" placeholder="Ej. Sucursal principal, pasillos de abarrotes...">
+                                </div>
+                            </div>
+                        </div>
+                    </section>
 
-                <section class="card">
-                    <div class="card-body table-responsive">
-                        <table class="table table-striped" id="table1">
-                            <thead>
-                                <tr>
-                                    <th>N.</th>
-                                    <th>COMPETIDOR</th>
-                                    <th>FECHA INSPECCIÓN</th>
-                                    <th>REGISTRADO POR</th>
-                                    <th class="text-center">PRODUCTOS COMPARADOS</th>
-                                    <th>OBSERVACIONES</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php 
-                            $vr_correlativo = 0;
-                            foreach ($levantamientos as $row): 
-                                $vr_correlativo++;
-                                $competidorRow = $row['competidor'] ?? $row['COMPETIDOR'] ?? '';
-                                $fechaRow = $row['fecha_levantamiento'] ?? $row['FECHA_LEVANTAMIENTO'] ?? '';
-                                $usuarioRow = $row['usuario'] ?? $row['USUARIO'] ?? 'Sistema';
-                                $totalItemsRow = $row['total_items'] ?? $row['TOTAL_ITEMS'] ?? 0;
-                                $obsRow = $row['observaciones'] ?? $row['OBSERVACIONES'] ?? 'N/A';
-                            ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($vr_correlativo, ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td><strong><?= escapar($competidorRow) ?></strong></td>
-                                    <td><?= date('d/m/Y', strtotime($fechaRow)) ?></td>
-                                    <td><?= escapar($usuarioRow) ?></td>
-                                    <td class="text-center">
-                                        <span class="badge bg-info text-dark"><?= escapar($totalItemsRow) ?> Ítems</span>
-                                    </td>
-                                    <td><?= escapar($obsRow) ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                    <!-- Matriz de captura: grilla Bootstrap (se apila sola en celular, sin CSS personalizado) -->
+                    <section class="card shadow-sm border-0">
+                        <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0 text-white"><i class="fas fa-basket-shopping"></i> Matriz de Precios (Softland)</h6>
+                            <span class="badge bg-light text-primary"><?= count($productosSoftland) ?> Ítems</span>
+                        </div>
+
+                        <div class="card-body p-0" id="matrizProductos">
+                            <!-- Encabezado: solo en pantallas medianas o más grandes -->
+                            <div class="d-none d-md-block bg-dark text-white small fw-bold px-3 py-2" style="position: sticky; top: 0; z-index: 5;">
+                                <div class="row g-2 align-items-center text-center">
+                                    <div class="col-md-4 text-start">PRODUCTO BANASUPRO</div>
+                                    <div class="col-md-2">PRECIO PROPIO</div>
+                                    <div class="col-md-2">PRECIO COMPETENCIA (L.)</div>
+                                    <div class="col-md-3">OBSERVACIONES</div>
+                                    <div class="col-md-1">ACC</div>
+                                </div>
+                            </div>
+
+                            <?php if (!empty($productosSoftland)): ?>
+                                <?php foreach ($productosSoftland as $index => $prod): 
+                                    $idProd = (int)($prod['id'] ?? 0);
+                                    $codigoProd = $prod['codigo'] ?? '';
+                                    $nombreProd = $prod['nombre_producto'] ?? '';
+                                    $precioRef = (float)($prod['precio_referencia'] ?? 0);
+                                ?>
+                                    <div class="fila-producto border-bottom px-3 py-2 <?= $index % 2 ? 'bg-light' : '' ?>" data-id-producto="<?= $idProd ?>">
+                                        <div class="row g-2 align-items-center">
+                                            <!-- Producto -->
+                                            <div class="col-12 col-md-4">
+                                                <div class="d-flex align-items-start gap-2">
+                                                    <span class="text-muted fw-bold small"><?= $index + 1 ?>.</span>
+                                                    <div>
+                                                        <strong class="d-block text-dark nombre-producto" style="font-size: 0.9rem;"><?= escapar($nombreProd) ?></strong>
+                                                        <code class="text-primary small"><?= escapar($codigoProd) ?></code>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Precio propio -->
+                                            <div class="col-5 col-md-2 text-md-center">
+                                                <div class="small text-muted d-md-none">Precio propio</div>
+                                                <span class="fw-bold text-muted">L. <?= number_format($precioRef, 2) ?></span>
+                                            </div>
+
+                                            <!-- Precio competencia -->
+                                            <div class="col-7 col-md-2">
+                                                <div class="small text-muted d-md-none">Competencia</div>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text bg-white">L.</span>
+                                                    <input type="number" step="0.01" min="0" inputmode="decimal" class="form-control text-end fw-bold input-precio-comp" placeholder="0.00">
+                                                </div>
+                                            </div>
+
+                                            <!-- Observaciones -->
+                                            <div class="col-8 col-md-3">
+                                                <input type="text" class="form-control form-control-sm input-obs-comp" placeholder="Observación (opcional)">
+                                            </div>
+
+                                            <!-- Guardar -->
+                                            <div class="col-4 col-md-1 d-grid">
+                                                <button type="button" class="btn btn-sm btn-outline-success btn-guardar-fila" title="Guardar producto" onclick="guardarFilaIndividual(this, <?= $idProd ?>, <?= $precioRef ?>)">
+                                                    <i class="fas fa-save"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class="text-center text-muted py-4">No hay productos sincronizados desde Softland.</div>
+                            <?php endif; ?>
+                        </div>
+                    </section>
+                </div>
             </div>
 
             <?php include('../../includes/menu_footer.php'); ?>
         </div>
     </div>
     
-    <!-- Incluir el Modal de Matriz Dinámica por Filas -->
-    <?php include __DIR__ . '/../../modals/modals_benchmark/benchmark_modal_agregar_levantamiento.php'; ?>
-
     <script src="../../assets/js/bootstrap.bundle.min.js"></script>
-    <script src="../../assets/vendors/simple-datatables/simple-datatables.js"></script>
-    <script>
-        let table1 = document.querySelector('#table1');
-        let dataTable = new simpleDatatables.DataTable(table1);
-    </script>
     <script src="../../assets/js/main.js"></script>
     <script src="../../js/benchmark_js/benchmark_levantamientos.js?v=<?= filemtime(__DIR__ . '/../../js/benchmark_js/benchmark_levantamientos.js') ?>"></script>
+    <script src="../../assets/js/bootstrap.bundle.min.js"></script>
+<script src="../../assets/js/main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="../../js/benchmark_js/benchmark_levantamientos.js?v=<?= filemtime(__DIR__ . '/../../js/benchmark_js/benchmark_levantamientos.js') ?>"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
