@@ -102,7 +102,7 @@ if(!empty($_SESSION['user_id'])) {
                         </li>
                         <?php endif; ?>
 
-                        <li class="sidebar-title">Configuraciones</li>
+                        <li class="sidebar-title"><i class="fas fa-sliders-h me-1"></i> Configuraciones</li>
 
                         <?php if($sidebarPuedeControl): ?>
                         <li class="sidebar-item <?=basename($_SERVER['SCRIPT_NAME'])==='control_periodos.php'?'active':''?>">
@@ -188,36 +188,40 @@ if(!empty($_SESSION['user_id'])) {
 
                         <?php }  #    ...::::: FIN CONTABLE :::::...?>
                         
-                        <!-- ...::::: BENCHMARK (Opción directa sin duplicados) :::::... -->
-                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>                                  
-                        <li class="sidebar-title">Benchmark</li>
+                        <!-- ...::::: BENCHMARK :::::... -->
+                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>
+                        <li class="sidebar-title"><i class="fas fa-chart-line me-1"></i> Benchmark</li>
                         <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_competidores.php' ? 'active' : '' ?>">
                             <a href="../benchmark/benchmark_competidores.php" class="sidebar-link">
-                                <i class="fas fa-store"></i>
+                                <i class="fas fa-building"></i>
                                 <span>Competidores</span>
                             </a>
                         </li>
-                        <?php endif; ?>
-
-                       <!-- ...::::: BENCHMARK (Opción directa sin duplicados) :::::... -->
-                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>                                  
                         <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_levantamientos.php' ? 'active' : '' ?>">
                             <a href="../benchmark/benchmark_levantamientos.php" class="sidebar-link">
-                                <i class="fas fa-store"></i>
-                                <span>Levantamiento de productos</span>
+                                <i class="fas fa-clipboard-list"></i>
+                                <span>Levantamiento de Precios</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_tabla_comparativa.php' ? 'active' : '' ?>">
+                            <a href="../benchmark/benchmark_tabla_comparativa.php" class="sidebar-link">
+                                <i class="fas fa-chart-bar"></i>
+                                <span>Tabla Comparativa</span>
                             </a>
                         </li>
                         <?php endif; ?>
 
-                        <!-- ...::::: BENCHMARK (Opción directa sin duplicados) :::::... -->
-                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>                                 
-                        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_tabla_comparativa.php' ? 'active' : '' ?>">
-                            <a href="../benchmark/benchmark_tabla_comparativa.php" class="sidebar-link">
-                                <i class="fas fa-store"></i>
-                                <span>Tabla Comparativa de Precios</span>
+                        <!-- ...::::: MANTENIMIENTO (ROL 6) :::::... -->
+                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [6], true)): ?>
+                        <li class="sidebar-title"><i class="fas fa-cogs me-1"></i> Mantenimiento</li>
+                        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'usuarios.php' ? 'active' : '' ?>">
+                            <a href="../usuarios/usuarios.php" class="sidebar-link">
+                                <i class="fas fa-users-cog"></i>
+                                <span>Usuarios</span>
                             </a>
                         </li>
                         <?php endif; ?>
+
 
                     </ul>
                 </div>

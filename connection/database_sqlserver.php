@@ -4,14 +4,12 @@ function database_sqlserver(): PDO
 {
     static $pdo;
     if (!$pdo) {
-        $serverName = 'IT-ERAMIREZ\MSSQLSERVER1'; // O "localhost\SQLEXPRESS" / IP
+        $serverName = 'IT-SVALLE\MSSQLSERVER22';
         $database = 'SOFTLAND';
-        $username = 'IT-ERAMIREZ\MSSQLSERVER1';
-        $password = '';
 
-        $dsn = "sqlsrv:Server={$serverName};Database={$database}";
+        $dsn = "sqlsrv:Server={$serverName};Database={$database};TrustServerCertificate=true;Encrypt=false";
 
-        $pdo = new PDO($dsn, $username, $password, [
+        $pdo = new PDO($dsn, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);

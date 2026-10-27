@@ -6,7 +6,7 @@ if (empty($_SESSION['user_id'])) {
     http_response_code(401);
     exit('Debes iniciar sesión.');
 }
-if (!in_array((int) ($_SESSION['id_rol'] ?? 0), [4, 5], true)) {
+if (!in_array((int) ($_SESSION['id_rol'] ?? 0), [4, 5, 6], true)) {
     http_response_code(403);
     exit('No tienes permiso para administrar usuarios.');
 }

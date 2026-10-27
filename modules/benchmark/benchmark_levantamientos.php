@@ -55,22 +55,94 @@ try {
     $competidores = [];
 }
 
-// Cargar los 30 productos base Banasupro con alias seguros en minúsculas para el JSON del modal dinámico
+// Cargar productos desde Softland y sincronizar con PostgreSQL para respetar las claves foráneas
 $productosSoftland = [];
 try {
-    $stmtP = $pdo->query("
-        SELECT 
-            id AS id, 
-            codigo AS codigo, 
-            nombre_producto AS nombre_producto, 
-            precio_referencia AS precio_referencia 
-        FROM benchmark_productos 
-        WHERE estado = 1 
-        ORDER BY id ASC
+    require_once __DIR__ . '/../../connection/database_sqlserver.php';
+    $pdoSql = database_sqlserver();
+    $sqlSoftland = "
+        WITH PreciosRecientes AS (
+            SELECT 
+                ARTICULO,
+                ArticuloDescripcion,
+                COALESCE(Clasificacion2, Clasificacion1, 'General') AS Categoria,
+                COALESCE(Clasificacion3, TipoArticulo, '') AS Gramaje,
+                Precio,
+                NivelPrecio,
+                ROW_NUMBER() OVER(
+                    PARTITION BY ARTICULO 
+                    ORDER BY 
+                        TRY_CONVERT(DATE, LEFT(PeriodoPrecio, CHARINDEX(':::', PeriodoPrecio + ':::') - 1)) DESC,
+                        VersionNivelPrecio DESC
+                ) AS rn
+            FROM BANASUPRO.SoftlandBI_FA_listaPrecios
+            WHERE ArticuloActivo LIKE 'S%'
+              AND EstVersionNivPrecio = 'A'
+              AND (Clasificacion2 = 'ABARROTES' OR Clasificacion1 = 'ARTICULOS COMERCIALES')
+        )
+        SELECT TOP 30 
+            ARTICULO AS codigo, 
+            ArticuloDescripcion AS nombre_producto, 
+            Categoria AS categoria,
+            Gramaje AS gramaje,
+            CAST(Precio AS DECIMAL(10,2)) AS precio_referencia 
+        FROM PreciosRecientes 
+        WHERE rn = 1
+        ORDER BY ArticuloDescripcion ASC
+    ";
+    $softlandProds = $pdoSql->query($sqlSoftland)->fetchAll(PDO::FETCH_ASSOC);
+
+    // Sincronizar con PostgreSQL benchmark_productos para obtener los IDs reales (evitar violación de FK)
+    $stmtSync = $pdo->prepare("
+        INSERT INTO benchmark_productos (codigo, nombre_producto, categoria, gramaje, precio_referencia, estado)
+        VALUES (?, ?, ?, ?, ?, 1)
+        ON CONFLICT (codigo) DO UPDATE SET
+            nombre_producto = EXCLUDED.nombre_producto,
+            categoria = EXCLUDED.categoria,
+            gramaje = EXCLUDED.gramaje,
+            precio_referencia = EXCLUDED.precio_referencia,
+            fecha_actualizacion = CURRENT_TIMESTAMP
+        RETURNING id, codigo, nombre_producto, categoria, gramaje, precio_referencia
     ");
-    $productosSoftland = $stmtP->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $productosSoftland = [];
+
+    foreach ($softlandProds as $sp) {
+        $stmtSync->execute([
+            $sp['codigo'],
+            $sp['nombre_producto'],
+            $sp['categoria'],
+            $sp['gramaje'],
+            $sp['precio_referencia']
+        ]);
+        $rowSync = $stmtSync->fetch(PDO::FETCH_ASSOC);
+        $productosSoftland[] = [
+            'id' => (int)($rowSync['ID'] ?? $rowSync['id']),
+            'codigo' => $rowSync['CODIGO'] ?? $rowSync['codigo'],
+            'nombre_producto' => $rowSync['NOMBRE_PRODUCTO'] ?? $rowSync['nombre_producto'],
+            'categoria' => $rowSync['CATEGORIA'] ?? $rowSync['categoria'],
+            'gramaje' => $rowSync['GRAMAJE'] ?? $rowSync['gramaje'],
+            'precio_referencia' => $rowSync['PRECIO_REFERENCIA'] ?? $rowSync['precio_referencia']
+        ];
+    }
+} catch (Throwable $e) {
+    // Si SQL Server no responde, cargar directamente desde la tabla local de PostgreSQL
+    try {
+        $stmtP = $pdo->query("
+            SELECT 
+                id AS id, 
+                codigo AS codigo, 
+                nombre_producto AS nombre_producto,
+                COALESCE(categoria, 'General') AS categoria,
+                COALESCE(gramaje, '') AS gramaje,
+                precio_referencia AS precio_referencia 
+            FROM benchmark_productos 
+            WHERE estado = 1 
+            ORDER BY id DESC 
+            LIMIT 30
+        ");
+        $productosSoftland = $stmtP->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e2) {
+        $productosSoftland = [];
+    }
 }
 
 function escapar($valor) {
@@ -97,7 +169,19 @@ function escapar($valor) {
             </header>
 
             <div class="page-heading">
-                <h3>Historial de Levantamientos y Productos por Usuario</h3>
+                <div class="page-title">
+                    <div class="row">
+                        <div class="col-12 col-md-8 order-md-1 order-last">
+                            <h3><i class="fas fa-clipboard-list text-primary"></i> Levantamiento de Precios</h3>
+                            <p class="text-subtitle text-muted">Historial de levantamientos registrados por usuario contra la competencia.</p>
+                        </div>
+                        <div class="col-12 col-md-4 order-md-2 order-first text-md-end mt-2 mt-md-0">
+                            <button type="button" class="btn btn-primary" onclick="abrirModalLevantamiento()">
+                                <i class="fas fa-plus-circle"></i> &nbsp; Nuevo Levantamiento
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="page-content">
@@ -117,11 +201,6 @@ function escapar($valor) {
                 <?php endif; ?>
 
                 <section class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalLevantamiento">
-                            <i class="bi bi-graph-up"></i> &nbsp; Nuevo Levantamiento
-                        </button>
-                    </div>
                     <div class="card-body table-responsive">
                         <table class="table table-striped" id="table1">
                             <thead>
