@@ -63,7 +63,7 @@ $precio_competencia = round((float)$precio_competencia, 2);
 
 try {
     // El competidor debe existir y estar activo
-    $stmtComp = $pdo->prepare("SELECT 1 FROM benchmark_competidores WHERE id = ? AND estado = 1");
+    $stmtComp = $pdo->prepare("SELECT 1 FROM benchmark.benchmark_competidores WHERE id = ? AND estado = 1");
     $stmtComp->execute([$id_competidor]);
     if (!$stmtComp->fetchColumn()) {
         echo json_encode(['success' => false, 'message' => 'El competidor no existe o está inactivo.']);
@@ -71,7 +71,7 @@ try {
     }
 
     // El precio propio se toma de la base, no del navegador
-    $stmtPrecio = $pdo->prepare("SELECT precio_referencia FROM benchmark_productos WHERE id = ? AND estado = 1");
+    $stmtPrecio = $pdo->prepare("SELECT precio_referencia FROM benchmark.benchmark_productos WHERE id = ? AND estado = 1");
     $stmtPrecio->execute([$id_producto]);
     $precio_banasupro = $stmtPrecio->fetchColumn();
     if ($precio_banasupro === false) {
@@ -83,7 +83,7 @@ try {
 
     // 1. Buscar cabecera de levantamiento del día para este competidor y usuario
     $stmtCheck = $pdo->prepare("
-        SELECT id FROM benchmark_levantamientos
+        SELECT id FROM benchmark.benchmark_levantamientos
         WHERE id_competidor = ? AND fecha_levantamiento = ? AND id_usuario = ?
         ORDER BY id DESC LIMIT 1
     ");
@@ -92,7 +92,7 @@ try {
 
     if (!$id_levantamiento) {
         $stmtL = $pdo->prepare('
-            INSERT INTO benchmark_levantamientos (id_usuario, id_competidor, fecha_levantamiento, observaciones)
+            INSERT INTO benchmark.benchmark_levantamientos (id_usuario, id_competidor, fecha_levantamiento, observaciones)
             VALUES (?, ?, ?, ?) RETURNING id
         ');
         $stmtL->execute([$id_usuario, $id_competidor, $fecha_hoy, $observaciones_visita]);
@@ -101,7 +101,7 @@ try {
 
     // 2. ¿Ya existe un precio de este producto en esta visita?
     $stmtExist = $pdo->prepare("
-        SELECT id, precio_competencia FROM benchmark_precios_detalle
+        SELECT id, precio_competencia FROM benchmark.benchmark_precios_detalle
         WHERE id_levantamiento = ? AND id_producto = ? LIMIT 1
     ");
     $stmtExist->execute([$id_levantamiento, $id_producto]);
@@ -121,21 +121,21 @@ try {
 
     // Actualizar observaciones generales de la visita si se escribieron
     if ($observaciones_visita !== '') {
-        $stmtUpd = $pdo->prepare("UPDATE benchmark_levantamientos SET observaciones = ? WHERE id = ?");
+        $stmtUpd = $pdo->prepare("UPDATE benchmark.benchmark_levantamientos SET observaciones = ? WHERE id = ?");
         $stmtUpd->execute([$observaciones_visita, $id_levantamiento]);
     }
 
     if ($detalle) {
         $idDetalle = $detalle['id'] ?? $detalle['ID'];
         $stmtUpdDet = $pdo->prepare("
-            UPDATE benchmark_precios_detalle
+            UPDATE benchmark.benchmark_precios_detalle
             SET precio_banasupro_referencia = ?, precio_competencia = ?, observaciones = ?
             WHERE id = ?
         ");
         $stmtUpdDet->execute([$precio_banasupro, $precio_competencia, $observaciones_item, $idDetalle]);
     } else {
         $stmtInsDet = $pdo->prepare("
-            INSERT INTO benchmark_precios_detalle
+            INSERT INTO benchmark.benchmark_precios_detalle
             (id_levantamiento, id_producto, precio_banasupro_referencia, precio_competencia, observaciones)
             VALUES (?, ?, ?, ?, ?)
         ");

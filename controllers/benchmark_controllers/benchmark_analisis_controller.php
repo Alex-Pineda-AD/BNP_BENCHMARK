@@ -77,10 +77,10 @@ $hA = $hastaAnt->format('Y-m-d');
 
 // ---------- Piezas de SQL (solo constantes: nada del usuario se concatena) ----------
 const FROM_BASE = '
-    FROM benchmark_precios_detalle d
-    INNER JOIN benchmark_levantamientos l ON l.id = d.id_levantamiento
-    INNER JOIN benchmark_competidores c   ON c.id = l.id_competidor
-    INNER JOIN benchmark_productos p      ON p.id = d.id_producto';
+    FROM benchmark.benchmark_precios_detalle d
+    INNER JOIN benchmark.benchmark_levantamientos l ON l.id = d.id_levantamiento
+    INNER JOIN benchmark.benchmark_competidores c   ON c.id = l.id_competidor
+    INNER JOIN benchmark.benchmark_productos p      ON p.id = d.id_producto';
 // Precio propio: snapshot del levantamiento, con el precio actual como respaldo (igual que la tabla comparativa)
 const PROPIO = 'COALESCE(NULLIF(d.precio_banasupro_referencia, 0), p.precio_referencia)';
 $periodo = ($agrupar === 'dia')

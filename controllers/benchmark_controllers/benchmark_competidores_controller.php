@@ -50,12 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if (empty($id)) {
             // INSERTAR NUEVO
-            $stmt = $pdo->prepare('INSERT INTO benchmark_competidores (nombre, descripcion, estado) VALUES (?, ?, ?)');
+            $stmt = $pdo->prepare('INSERT INTO benchmark.benchmark_competidores (nombre, descripcion, estado) VALUES (?, ?, ?)');
             $stmt->execute([$nombre, $ubicacion, $estado]);
             $mensaje = '¡Competidor registrado correctamente!';
         } else {
             // ACTUALIZAR / EDITAR
-            $stmt = $pdo->prepare('UPDATE benchmark_competidores SET nombre = ?, descripcion = ?, estado = ? WHERE id = ?');
+            $stmt = $pdo->prepare('UPDATE benchmark.benchmark_competidores SET nombre = ?, descripcion = ?, estado = ? WHERE id = ?');
             $stmt->execute([$nombre, $ubicacion, $estado, (int)$id]);
             $mensaje = '¡Competidor actualizado correctamente!';
         }

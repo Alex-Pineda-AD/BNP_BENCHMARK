@@ -34,7 +34,7 @@ try {
             ESTADO AS estado,
             CASE WHEN ESTADO = 1 THEN \'Activo\' ELSE \'Inactivo\' END AS ESTADO_TEXTO,
             CASE WHEN ESTADO = 1 THEN \'badge bg-success\' ELSE \'badge bg-danger\' END AS BG
-        FROM benchmark_competidores
+        FROM benchmark.benchmark_competidores
         ORDER BY ID DESC
     ');
     $competidores = $consulta->fetchAll(PDO::FETCH_ASSOC);

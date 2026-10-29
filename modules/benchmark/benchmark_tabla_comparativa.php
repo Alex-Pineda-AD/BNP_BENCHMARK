@@ -39,10 +39,10 @@ try {
             COALESCE(NULLIF(d.precio_banasupro_referencia, 0), p.precio_referencia) AS precio_propio,
             d.precio_competencia,
             d.observaciones
-        FROM benchmark_precios_detalle d
-        INNER JOIN benchmark_levantamientos l ON d.id_levantamiento = l.id
-        INNER JOIN benchmark_competidores c ON l.id_competidor = c.id
-        INNER JOIN benchmark_productos p ON d.id_producto = p.id
+        FROM benchmark.benchmark_precios_detalle d
+        INNER JOIN benchmark.benchmark_levantamientos l ON d.id_levantamiento = l.id
+        INNER JOIN benchmark.benchmark_competidores c ON l.id_competidor = c.id
+        INNER JOIN benchmark.benchmark_productos p ON d.id_producto = p.id
         " . ($fCompetidor !== null ? 'WHERE l.id_competidor = ?' : '') . "
         ORDER BY l.fecha_levantamiento DESC, d.id DESC
     ");
@@ -51,7 +51,7 @@ try {
 
     // Competidores para el selector del filtro
     $competidores = array_map(fn($r) => array_change_key_case($r, CASE_LOWER),
-        $pdo->query('SELECT id, nombre, estado FROM benchmark_competidores ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC));
+        $pdo->query('SELECT id, nombre, estado FROM benchmark.benchmark_competidores ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC));
 } catch (PDOException $e) {
     error_log('benchmark_tabla_comparativa: ' . $e->getMessage());
     $errorConsulta = 'Error al consultar la matriz comparativa general.';

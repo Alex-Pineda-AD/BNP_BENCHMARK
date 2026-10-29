@@ -22,7 +22,7 @@ $errorCatalogos = null;
 try {
     $competidores = array_map(
         fn($r) => array_change_key_case($r, CASE_LOWER),
-        $pdo->query('SELECT id, nombre, estado FROM benchmark_competidores ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC)
+        $pdo->query('SELECT id, nombre, estado FROM benchmark.benchmark_competidores ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC)
     );
 } catch (PDOException $e) {
     error_log('benchmark_analisis: ' . $e->getMessage());

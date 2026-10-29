@@ -19,7 +19,7 @@ unset($_SESSION['levantamiento_resultado']);
 // Cargar competidores activos para el listbox superior
 $competidores = [];
 try {
-    $stmtC = $pdo->query("SELECT id AS id, nombre AS nombre FROM benchmark_competidores WHERE estado = 1 ORDER BY nombre ASC");
+    $stmtC = $pdo->query("SELECT id AS id, nombre AS nombre FROM benchmark.benchmark_competidores WHERE estado = 1 ORDER BY nombre ASC");
     $competidores = $stmtC->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $competidores = [];
@@ -61,7 +61,7 @@ try {
     $softlandProds = $pdoSql->query($sqlSoftland)->fetchAll(PDO::FETCH_ASSOC);
 
     $stmtSync = $pdo->prepare("
-        INSERT INTO benchmark_productos (codigo, nombre_producto, categoria, precio_referencia, estado)
+        INSERT INTO benchmark.benchmark_productos (codigo, nombre_producto, categoria, precio_referencia, estado)
         VALUES (?, ?, ?, ?, 1)
         ON CONFLICT (codigo) DO UPDATE SET
             nombre_producto = EXCLUDED.nombre_producto,
@@ -97,7 +97,7 @@ try {
                 nombre_producto AS nombre_producto,
                 COALESCE(categoria, 'General') AS categoria,
                 precio_referencia AS precio_referencia 
-            FROM benchmark_productos 
+            FROM benchmark.benchmark_productos 
             WHERE estado = 1 
             ORDER BY id DESC 
             LIMIT 30
