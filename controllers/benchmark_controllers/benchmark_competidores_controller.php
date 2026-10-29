@@ -1,26 +1,47 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../connection/connection.php';
+require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
 }
 
-if (empty($_SESSION['user_id'])) {
-    header('Location: ../../index.html?sesion=requerida');
-    exit;
-}
+benchmark_requerir_pagina();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Token del formulario: bloquea envíos desde otros sitios
+    if (!benchmark_csrf_valido($_POST['csrf_token'] ?? null)) {
+        $_SESSION['competidor_resultado'] = [
+            'tipo' => 'danger',
+            'mensaje' => 'La sesión del formulario expiró. Recargá la página e intentá de nuevo.'
+        ];
+        header('Location: ../../modules/benchmark/benchmark_competidores.php');
+        exit;
+    }
+
     $id = trim($_POST['id'] ?? '');
     $nombre = trim($_POST['nombre'] ?? '');
     $ubicacion = trim($_POST['ubicacion_referencia'] ?? '');
-    $estado = isset($_POST['estado']) ? (int)$_POST['estado'] : 1;
+    $estado = filter_var($_POST['estado'] ?? 1, FILTER_VALIDATE_INT);
 
-    if (empty($nombre)) {
+    $error = null;
+    if ($nombre === '') {
+        $error = 'El nombre del competidor es obligatorio.';
+    } elseif (mb_strlen($nombre) > 100) {
+        $error = 'El nombre no puede pasar de 100 caracteres.';
+    } elseif (mb_strlen($ubicacion) > 500) {
+        $error = 'La ubicación no puede pasar de 500 caracteres.';
+    } elseif (!in_array($estado, [0, 1], true)) {
+        $error = 'El estado no es válido.';
+    } elseif ($id !== '' && filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+        $error = 'El competidor a editar no es válido.';
+    }
+
+    if ($error) {
         $_SESSION['competidor_resultado'] = [
             'tipo' => 'danger',
-            'mensaje' => 'El nombre del competidor es obligatorio.'
+            'mensaje' => $error
         ];
         header('Location: ../../modules/benchmark/benchmark_competidores.php');
         exit;
@@ -44,9 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'mensaje' => $mensaje
         ];
     } catch (PDOException $e) {
+        error_log('[benchmark_competidores] ' . $e->getMessage());
         $_SESSION['competidor_resultado'] = [
             'tipo' => 'danger',
-            'mensaje' => 'Error en la base de datos: ' . $e->getMessage()
+            'mensaje' => 'No se pudo guardar el competidor. Intentá de nuevo.'
         ];
     }
 

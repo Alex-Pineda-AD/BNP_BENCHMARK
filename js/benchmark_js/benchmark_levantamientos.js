@@ -101,7 +101,6 @@ async function guardarFilaIndividual(button, idProducto, precioBanasupro) {
         id_competidor: idCompetidor,
         observaciones_visita: observacionesVisita,
         id_producto: idProducto,
-        precio_banasupro: precioBanasupro,
         precio_competencia: precioCompetencia,
         observaciones_item: observacionesItem,
         actualizar: false
@@ -115,7 +114,7 @@ function enviarGuardado(button, row, payload, nombreProducto, nombreCompetidor) 
 
     fetch(obtenerEndpointGuardarFila(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': BENCHMARK_CSRF },
         body: JSON.stringify(payload)
     })
         .then(response => {

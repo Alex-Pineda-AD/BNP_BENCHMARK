@@ -3,15 +3,14 @@ session_start();
 header('Cache-Control: no-store');
 
 require_once __DIR__ . '/../../connection/connection.php';
+require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
 }
 
-if (empty($_SESSION['user_id'])) {
-    header('Location: ../../index.html?sesion=requerida');
-    exit;
-}
+// Control de acceso por rol (5 y 6)
+benchmark_requerir_pagina();
 
 // Capturar mensaje flash de éxito o error (se muestra con SweetAlert2)
 $resultado = $_SESSION['competidor_resultado'] ?? null;
@@ -156,8 +155,7 @@ function escapar($valor) {
         }
     </script>
     <script src="../../assets/js/main.js"></script>
-    <!-- SweetAlert2 (si tu plantilla ya lo trae local, usa esa ruta en lugar del CDN) -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="../../assets/vendors/sweetalert2/sweetalert2.all.min.js"></script>
     <script src="../../js/benchmark_js/benchmark_competidores.js?v=<?= filemtime(__DIR__ . '/../../js/benchmark_js/benchmark_competidores.js') ?>"></script>
 
     <?php if ($resultado): ?>

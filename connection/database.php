@@ -9,7 +9,7 @@ function database(): PDO
         'port' => getenv('DB_PORT') ?: '5432',
         'dbname' => getenv('DB_NAME') ?: 'banasupro2',
         'user' => getenv('DB_USER') ?: 'postgres',
-        'password' => getenv('DB_PASSWORD') ?: 'hola1010',
+        'password' => getenv('DB_PASSWORD') ?: '', // definirla en database.local.php o DB_PASSWORD
         'schema' => getenv('DB_SCHEMA') ?: 'public',
     ];
     $local = __DIR__ . '/database.local.php';

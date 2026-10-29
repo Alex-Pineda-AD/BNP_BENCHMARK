@@ -10,6 +10,7 @@
             <form id="formCompetidor" action="../../controllers/benchmark_controllers/benchmark_competidores_controller.php" method="POST">
                 <!-- Input oculto indispensable para saber si estamos editando -->
                 <input type="hidden" id="competidor_id" name="id">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(benchmark_csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
                 <div class="modal-body">
                     <div class="form-group mb-3">

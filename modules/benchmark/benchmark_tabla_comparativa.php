@@ -6,29 +6,20 @@ ini_set('display_errors', 0);
 header('Cache-Control: no-store');
 
 require_once __DIR__ . '/../../connection/connection.php';
+require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
 }
 
-if (empty($_SESSION['user_id'])) {
-    header('Location: ../../index.html?sesion=requerida');
-    exit;
-}
+// Control de acceso por rol (5 y 6)
+benchmark_requerir_pagina();
 
 $detalles = [];
 $errorConsulta = null;
 
 try {
     // Consulta general unificada con prioridad al precio histórico snapshot
-    $campoPrecioBana = "p.precio_referencia AS precio_propio";
-    try {
-        $pdo->query("SELECT precio_banasupro_referencia FROM benchmark_precios_detalle LIMIT 1");
-        $campoPrecioBana = "COALESCE(NULLIF(d.precio_banasupro_referencia, 0), p.precio_referencia) AS precio_propio";
-    } catch (Throwable $ePrecio) {
-        $campoPrecioBana = "p.precio_referencia AS precio_propio";
-    }
-
     $stmt = $pdo->query("
         SELECT 
             d.id AS id_detalle,
@@ -36,8 +27,7 @@ try {
             c.nombre AS competidor,
             l.fecha_levantamiento,
             p.nombre_producto AS producto_banasupro,
-            {$campoPrecioBana},
-            d.nombre_producto_competencia,
+            COALESCE(NULLIF(d.precio_banasupro_referencia, 0), p.precio_referencia) AS precio_propio,
             d.precio_competencia,
             d.observaciones
         FROM benchmark_precios_detalle d
@@ -389,7 +379,8 @@ function escapar($valor) {
             donutChart.render();
 
             // 2. Gráfica de Barras Comparativa (Banasupro vs Competidor)
-            const categoriasBar = <?= json_encode($chartLabels, JSON_UNESCAPED_UNICODE) ?>;
+            // JSON_HEX_*: un nombre con "</script>" no puede cerrar este bloque (XSS)
+            const categoriasBar = <?= json_encode($chartLabels, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
             const banaPrecios = <?= json_encode($chartBanaPrecios) ?>;
             const compPrecios = <?= json_encode($chartCompPrecios) ?>;
 

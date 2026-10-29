@@ -7,7 +7,11 @@ error_reporting(E_ALL);
 
 header('Content-Type: application/json; charset=utf-8');
 
+// php.ini de XAMPP trae Europe/Berlin; la fecha del levantamiento debe ser la de Honduras
+date_default_timezone_set('America/Tegucigalpa');
+
 require_once __DIR__ . '/../../connection/connection.php';
+require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
@@ -18,29 +22,63 @@ if (empty($_SESSION['user_id'])) {
     exit;
 }
 
+if (!benchmark_tiene_acceso()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'No tenés permiso para registrar precios.']);
+    exit;
+}
+
+// Solo POST JSON con el token de la página (bloquea envíos desde otros sitios)
+if ($_SERVER['REQUEST_METHOD'] !== 'POST'
+    || stripos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== 0
+    || !benchmark_csrf_valido($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Solicitud no válida. Recargá la página e intentá de nuevo.']);
+    exit;
+}
+
 $data = json_decode(file_get_contents('php://input'), true);
 
-if (!$data) {
+if (!is_array($data)) {
     echo json_encode(['success' => false, 'message' => 'No se recibieron datos válidos.']);
     exit;
 }
 
-$id_usuario           = $_SESSION['user_id'];
-$id_competidor        = trim((string)($data['id_competidor'] ?? ''));
-$observaciones_visita = trim((string)($data['observaciones_visita'] ?? ''));
-$id_producto          = trim((string)($data['id_producto'] ?? ''));
-$precio_banasupro     = (float)($data['precio_banasupro'] ?? 0);
+$id_usuario           = (int)$_SESSION['user_id'];
+$id_competidor        = filter_var($data['id_competidor'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$id_producto          = filter_var($data['id_producto'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$observaciones_visita = mb_substr(trim((string)($data['observaciones_visita'] ?? '')), 0, 500);
 $precio_competencia   = trim((string)($data['precio_competencia'] ?? ''));
-$observaciones_item   = trim((string)($data['observaciones_item'] ?? ''));
+$observaciones_item   = mb_substr(trim((string)($data['observaciones_item'] ?? '')), 0, 500);
 $actualizar           = !empty($data['actualizar']); // true solo si el usuario confirmó la actualización
 $fecha_hoy            = date('Y-m-d');
 
-if ($id_competidor === '' || $id_producto === '' || $precio_competencia === '' || !is_numeric($precio_competencia) || (float)$precio_competencia <= 0) {
+// numeric(10,2): máximo 99,999,999.99
+if ($id_competidor === false || $id_producto === false || !is_numeric($precio_competencia)
+    || (float)$precio_competencia <= 0 || (float)$precio_competencia >= 100000000) {
     echo json_encode(['success' => false, 'message' => 'Faltan datos obligatorios o el precio de la competencia no es válido.']);
     exit;
 }
+$precio_competencia = round((float)$precio_competencia, 2);
 
 try {
+    // El competidor debe existir y estar activo
+    $stmtComp = $pdo->prepare("SELECT 1 FROM benchmark_competidores WHERE id = ? AND estado = 1");
+    $stmtComp->execute([$id_competidor]);
+    if (!$stmtComp->fetchColumn()) {
+        echo json_encode(['success' => false, 'message' => 'El competidor no existe o está inactivo.']);
+        exit;
+    }
+
+    // El precio propio se toma de la base, no del navegador
+    $stmtPrecio = $pdo->prepare("SELECT precio_referencia FROM benchmark_productos WHERE id = ? AND estado = 1");
+    $stmtPrecio->execute([$id_producto]);
+    $precio_banasupro = $stmtPrecio->fetchColumn();
+    if ($precio_banasupro === false) {
+        echo json_encode(['success' => false, 'message' => 'El producto no existe o está inactivo.']);
+        exit;
+    }
+
     $pdo->beginTransaction();
 
     // 1. Buscar cabecera de levantamiento del día para este competidor y usuario
@@ -66,7 +104,7 @@ try {
         SELECT id, precio_competencia FROM benchmark_precios_detalle
         WHERE id_levantamiento = ? AND id_producto = ? LIMIT 1
     ");
-    $stmtExist->execute([$id_levantamiento, (int)$id_producto]);
+    $stmtExist->execute([$id_levantamiento, $id_producto]);
     $detalle = $stmtExist->fetch(PDO::FETCH_ASSOC);
 
     if ($detalle && !$actualizar) {
@@ -94,23 +132,18 @@ try {
             SET precio_banasupro_referencia = ?, precio_competencia = ?, observaciones = ?
             WHERE id = ?
         ");
-        $stmtUpdDet->execute([$precio_banasupro, (float)$precio_competencia, $observaciones_item, $idDetalle]);
+        $stmtUpdDet->execute([$precio_banasupro, $precio_competencia, $observaciones_item, $idDetalle]);
     } else {
-        $stmtProd = $pdo->prepare("SELECT nombre_producto FROM benchmark_productos WHERE id = ? LIMIT 1");
-        $stmtProd->execute([(int)$id_producto]);
-        $nombreProducto = $stmtProd->fetchColumn() ?: 'Producto General';
-
         $stmtInsDet = $pdo->prepare("
             INSERT INTO benchmark_precios_detalle
-            (id_levantamiento, id_producto, precio_banasupro_referencia, nombre_producto_competencia, precio_competencia, observaciones)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (id_levantamiento, id_producto, precio_banasupro_referencia, precio_competencia, observaciones)
+            VALUES (?, ?, ?, ?, ?)
         ");
         $stmtInsDet->execute([
             $id_levantamiento,
-            (int)$id_producto,
+            $id_producto,
             $precio_banasupro,
-            $nombreProducto,
-            (float)$precio_competencia,
+            $precio_competencia,
             $observaciones_item
         ]);
     }
@@ -128,5 +161,6 @@ try {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    echo json_encode(['success' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()]);
+    error_log('[benchmark_guardar_fila] ' . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'No se pudo guardar el precio. Intentá de nuevo.']);
 }

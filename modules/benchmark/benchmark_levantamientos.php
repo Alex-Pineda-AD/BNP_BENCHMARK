@@ -3,22 +3,14 @@ session_start();
 header('Cache-Control: no-store');
 
 require_once __DIR__ . '/../../connection/connection.php';
+require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
 }
 
-if (empty($_SESSION['user_id'])) {
-    header('Location: ../../index.html?sesion=requerida');
-    exit;
-}
-
-// Control de Acceso por Rol (Permitido solo para roles 5 y 6)
-$rolUsuario = (int)($_SESSION['id_rol'] ?? $_SESSION['rol'] ?? 0);
-if (!in_array($rolUsuario, [5, 6])) {
-    header('Location: ../../access_denied.php');
-    exit;
-}
+// Control de acceso por rol (5 y 6)
+benchmark_requerir_pagina();
 
 // Capturar mensaje flash de éxito o error
 $resultado = $_SESSION['levantamiento_resultado'] ?? null;
@@ -44,7 +36,6 @@ try {
                 ARTICULO,
                 ArticuloDescripcion,
                 COALESCE(Clasificacion2, Clasificacion1, 'General') AS Categoria,
-                COALESCE(Clasificacion3, TipoArticulo, '') AS Gramaje,
                 Precio,
                 NivelPrecio,
                 ROW_NUMBER() OVER(
@@ -62,7 +53,6 @@ try {
             ARTICULO AS codigo, 
             ArticuloDescripcion AS nombre_producto, 
             Categoria AS categoria,
-            Gramaje AS gramaje,
             CAST(Precio AS DECIMAL(10,2)) AS precio_referencia 
         FROM PreciosRecientes 
         WHERE rn = 1
@@ -71,15 +61,14 @@ try {
     $softlandProds = $pdoSql->query($sqlSoftland)->fetchAll(PDO::FETCH_ASSOC);
 
     $stmtSync = $pdo->prepare("
-        INSERT INTO benchmark_productos (codigo, nombre_producto, categoria, gramaje, precio_referencia, estado)
-        VALUES (?, ?, ?, ?, ?, 1)
+        INSERT INTO benchmark_productos (codigo, nombre_producto, categoria, precio_referencia, estado)
+        VALUES (?, ?, ?, ?, 1)
         ON CONFLICT (codigo) DO UPDATE SET
             nombre_producto = EXCLUDED.nombre_producto,
             categoria = EXCLUDED.categoria,
-            gramaje = EXCLUDED.gramaje,
             precio_referencia = EXCLUDED.precio_referencia,
             fecha_actualizacion = CURRENT_TIMESTAMP
-        RETURNING id, codigo, nombre_producto, categoria, gramaje, precio_referencia
+        RETURNING id, codigo, nombre_producto, categoria, precio_referencia
     ");
 
     foreach ($softlandProds as $sp) {
@@ -87,7 +76,6 @@ try {
             $sp['codigo'],
             $sp['nombre_producto'],
             $sp['categoria'],
-            $sp['gramaje'],
             $sp['precio_referencia']
         ]);
         $rowSync = $stmtSync->fetch(PDO::FETCH_ASSOC);
@@ -96,11 +84,11 @@ try {
             'codigo' => $rowSync['CODIGO'] ?? $rowSync['codigo'],
             'nombre_producto' => $rowSync['NOMBRE_PRODUCTO'] ?? $rowSync['nombre_producto'],
             'categoria' => $rowSync['CATEGORIA'] ?? $rowSync['categoria'],
-            'gramaje' => $rowSync['GRAMAJE'] ?? $rowSync['gramaje'],
             'precio_referencia' => $rowSync['PRECIO_REFERENCIA'] ?? $rowSync['precio_referencia']
         ];
     }
 } catch (Throwable $e) {
+    error_log('[benchmark_levantamientos] Softland no disponible: ' . $e->getMessage());
     try {
         $stmtP = $pdo->query("
             SELECT 
@@ -108,14 +96,14 @@ try {
                 codigo AS codigo, 
                 nombre_producto AS nombre_producto,
                 COALESCE(categoria, 'General') AS categoria,
-                COALESCE(gramaje, '') AS gramaje,
                 precio_referencia AS precio_referencia 
             FROM benchmark_productos 
             WHERE estado = 1 
             ORDER BY id DESC 
             LIMIT 30
         ");
-        $productosSoftland = $stmtP->fetchAll(PDO::FETCH_ASSOC);
+        // La conexión PostgreSQL usa CASE_UPPER; la vista lee las claves en minúscula
+        $productosSoftland = array_map(fn($r) => array_change_key_case($r, CASE_LOWER), $stmtP->fetchAll(PDO::FETCH_ASSOC));
     } catch (PDOException $e2) {
         $productosSoftland = [];
     }
@@ -137,6 +125,7 @@ function escapar($valor) {
     <!-- Definir la ruta base absoluta para evitar problemas en localhost -->
     <script>
         const BASE_URL = window.location.origin + '/BNP-Benchmark';
+        const BENCHMARK_CSRF = <?= json_encode(benchmark_csrf_token()) ?>;
     </script>
 
     <div id="app">
@@ -279,11 +268,8 @@ function escapar($valor) {
     
     <script src="../../assets/js/bootstrap.bundle.min.js"></script>
     <script src="../../assets/js/main.js"></script>
+    <script src="../../assets/vendors/sweetalert2/sweetalert2.all.min.js"></script>
     <script src="../../js/benchmark_js/benchmark_levantamientos.js?v=<?= filemtime(__DIR__ . '/../../js/benchmark_js/benchmark_levantamientos.js') ?>"></script>
-    <script src="../../assets/js/bootstrap.bundle.min.js"></script>
-<script src="../../assets/js/main.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="../../js/benchmark_js/benchmark_levantamientos.js?v=<?= filemtime(__DIR__ . '/../../js/benchmark_js/benchmark_levantamientos.js') ?>"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
