@@ -3,10 +3,8 @@ let productosGlobal = [];
 const COLOR_PRIMARIO = '#435ebe'; // color primario de Mazer
 
 function obtenerEndpointGuardarFila() {
-    const base = (typeof BASE_URL !== 'undefined')
-        ? BASE_URL
-        : window.location.origin + '/BNP-Benchmark';
-    return base + '/controllers/benchmark_controllers/benchmark_guardar_fila_controller.php';
+    // Ruta relativa a la página (modules/benchmark/): funciona en cualquier carpeta o servidor
+    return '../../controllers/benchmark_controllers/benchmark_guardar_fila_controller.php';
 }
 
 function formatoLempiras(valor) {

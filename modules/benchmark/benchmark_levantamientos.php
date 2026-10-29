@@ -123,9 +123,7 @@ function escapar($valor) {
 </head>
 
 <body>
-    <!-- Definir la ruta base absoluta para evitar problemas en localhost -->
     <script>
-        const BASE_URL = window.location.origin + '/BNP-Benchmark';
         const BENCHMARK_CSRF = <?= json_encode(benchmark_csrf_token()) ?>;
     </script>
 
