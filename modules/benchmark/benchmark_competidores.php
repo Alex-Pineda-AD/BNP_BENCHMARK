@@ -51,6 +51,7 @@ function escapar($valor) {
 <head>
     <?php include '../../includes/head.php'; ?>
     <link rel="stylesheet" href="../../assets/vendors/simple-datatables/style.css">
+    <link rel="stylesheet" href="../../assets/css/benchmark.css">
 </head>
 
 <body>
@@ -66,11 +67,12 @@ function escapar($valor) {
             </header>
 
             <div class="page-heading">
-                <div class="page-title">
-                    <div class="row">
-                        <div class="col-12">
-                            <h3><i class="fas fa-building text-primary"></i> Competidores</h3>
-                            <p class="text-subtitle text-muted">Administrá los competidores activos para el levantamiento de precios.</p>
+                <div class="card benchmark-hero mb-4">
+                    <div class="card-body p-4 d-flex align-items-center flex-wrap gap-3">
+                        <div class="benchmark-hero-icon"><i class="fas fa-building"></i></div>
+                        <div class="flex-grow-1">
+                            <h3 class="text-white mb-1">Competidores</h3>
+                            <p class="mb-0 text-white-50">Administrá los competidores activos para el levantamiento de precios.</p>
                         </div>
                     </div>
                 </div>

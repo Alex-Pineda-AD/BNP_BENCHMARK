@@ -1,5 +1,2 @@
-/files/depositos/*
-!/files/depositos/.htaccess
-
 /connection/database.local.php
 /connection/database_sqlserver.local.php

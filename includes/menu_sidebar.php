@@ -209,6 +209,12 @@ if(!empty($_SESSION['user_id'])) {
                                 <span>Tabla Comparativa</span>
                             </a>
                         </li>
+                        <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_analisis.php' ? 'active' : '' ?>">
+                            <a href="../benchmark/benchmark_analisis.php" class="sidebar-link">
+                               <i class="fas fa-chart-line"></i>
+                               <span>Análisis de Precios</span>
+                           </a>
+                        </li>
                         <?php endif; ?>
 
                         <!-- ...::::: MANTENIMIENTO (ROL 6) :::::... -->

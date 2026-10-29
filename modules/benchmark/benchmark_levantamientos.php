@@ -119,6 +119,7 @@ function escapar($valor) {
     <?php include '../../includes/head.php'; ?>
     <!-- Iconos FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/benchmark.css">
 </head>
 
 <body>
@@ -141,10 +142,13 @@ function escapar($valor) {
 
             <div class="container-fluid px-2 px-md-4">
                 <div class="page-heading mb-3">
-                    <div class="row align-items-center">
-                        <div class="col-12">
-                            <h3><i class="fas fa-clipboard-list text-primary"></i> Levantamiento de Precios</h3>
-                            <p class="text-subtitle text-muted">Módulo de captura masiva directa contra la competencia.</p>
+                    <div class="card benchmark-hero mb-4">
+                        <div class="card-body p-4 d-flex align-items-center flex-wrap gap-3">
+                            <div class="benchmark-hero-icon"><i class="fas fa-clipboard-list"></i></div>
+                            <div class="flex-grow-1">
+                                <h3 class="text-white mb-1">Levantamiento de Precios</h3>
+                                <p class="mb-0 text-white-50">Módulo de captura masiva directa contra la competencia.</p>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -18,14 +18,23 @@ benchmark_requerir_pagina();
 $detalles = [];
 $errorConsulta = null;
 
+date_default_timezone_set('America/Tegucigalpa');
+$hoy = date('Y-m-d');
+$competidores = [];
+
+// Filtro opcional por competidor (?id_competidor=N)
+$fCompetidor = filter_var($_GET['id_competidor'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$fCompetidor = ($fCompetidor === false) ? null : $fCompetidor;
+
 try {
     // Consulta general unificada con prioridad al precio histórico snapshot
-    $stmt = $pdo->query("
-        SELECT 
+    $stmt = $pdo->prepare("
+        SELECT
             d.id AS id_detalle,
             l.id AS id_levantamiento,
             c.nombre AS competidor,
             l.fecha_levantamiento,
+            p.id AS id_producto,
             p.nombre_producto AS producto_banasupro,
             COALESCE(NULLIF(d.precio_banasupro_referencia, 0), p.precio_referencia) AS precio_propio,
             d.precio_competencia,
@@ -34,11 +43,17 @@ try {
         INNER JOIN benchmark_levantamientos l ON d.id_levantamiento = l.id
         INNER JOIN benchmark_competidores c ON l.id_competidor = c.id
         INNER JOIN benchmark_productos p ON d.id_producto = p.id
+        " . ($fCompetidor !== null ? 'WHERE l.id_competidor = ?' : '') . "
         ORDER BY l.fecha_levantamiento DESC, d.id DESC
     ");
-    $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->execute($fCompetidor !== null ? [$fCompetidor] : []);
+    $detalles = array_map(fn($r) => array_change_key_case($r, CASE_LOWER), $stmt->fetchAll(PDO::FETCH_ASSOC));
 
+    // Competidores para el selector del filtro
+    $competidores = array_map(fn($r) => array_change_key_case($r, CASE_LOWER),
+        $pdo->query('SELECT id, nombre, estado FROM benchmark_competidores ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC));
 } catch (PDOException $e) {
+    error_log('benchmark_tabla_comparativa: ' . $e->getMessage());
     $errorConsulta = 'Error al consultar la matriz comparativa general.';
 }
 
@@ -49,9 +64,6 @@ $totalBanaCaro = 0;
 $totalIgual = 0;
 $totalAhorro = 0;
 
-$chartLabels = [];
-$chartBanaPrecios = [];
-$chartCompPrecios = [];
 
 foreach ($detalles as $row) {
     $pPropio = (float)($row['precio_propio'] ?? $row['PRECIO_PROPIO'] ?? 0);
@@ -68,19 +80,6 @@ foreach ($detalles as $row) {
     }
 }
 
-// Muestras para la gráfica de barras comparativas (primeros 7 levantamientos)
-$muestrasChart = array_slice($detalles, 0, 7);
-foreach ($muestrasChart as $m) {
-    $pName = (string)($m['producto_banasupro'] ?? $m['PRODUCTO_BANASUPRO'] ?? '');
-    if (mb_strlen($pName) > 18) {
-        $pName = mb_substr($pName, 0, 16) . '..';
-    }
-    $cName = (string)($m['competidor'] ?? $m['COMPETIDOR'] ?? '');
-    $chartLabels[] = $pName . ' (' . $cName . ')';
-    $chartBanaPrecios[] = round((float)($m['precio_propio'] ?? $m['PRECIO_PROPIO'] ?? 0), 2);
-    $chartCompPrecios[] = round((float)($m['precio_competencia'] ?? $m['PRECIO_COMPETENCIA'] ?? 0), 2);
-}
-
 $pctBanaBarato = $totalComparados > 0 ? round(($totalBanaBarato / $totalComparados) * 100, 1) : 0;
 $pctBanaCaro = $totalComparados > 0 ? round(($totalBanaCaro / $totalComparados) * 100, 1) : 0;
 
@@ -93,7 +92,6 @@ function escapar($valor) {
 <head>
     <?php include '../../includes/head.php'; ?>
     <link rel="stylesheet" href="../../assets/vendors/simple-datatables/style.css">
-    <link rel="stylesheet" href="../../assets/vendors/apexcharts/apexcharts.css">
     <style>
         .kpi-card {
             border: none;
@@ -115,6 +113,7 @@ function escapar($valor) {
             font-size: 1.3rem;
         }
     </style>
+    <link rel="stylesheet" href="../../assets/css/benchmark.css">
 </head>
 
 <body>
@@ -130,17 +129,40 @@ function escapar($valor) {
             </header>
 
             <div class="page-heading">
-                <div class="page-title mb-3">
-                    <div class="row">
-                        <div class="col-12 col-md-8">
-                            <h3 class="mb-1"><i class="fas fa-chart-bar text-primary"></i> Benchmark: Comparativa de Precios</h3>
-                            <p class="text-subtitle text-muted mb-0">Panel analítico y matriz de precios contra la competencia</p>
+                <div class="card benchmark-hero mb-4">
+                    <div class="card-body p-4 d-flex align-items-center flex-wrap gap-3">
+                        <div class="benchmark-hero-icon"><i class="fas fa-chart-bar"></i></div>
+                        <div class="flex-grow-1">
+                            <h3 class="text-white mb-1">Benchmark: Comparativa de Precios</h3>
+                            <p class="mb-0 text-white-50">Panel analítico y matriz de precios contra la competencia</p>
                         </div>
-                        <div class="col-12 col-md-4 text-md-end mt-2 mt-md-0">
-                            <a href="benchmark_levantamientos.php" class="btn btn-primary">
-                                <i class="fas fa-plus-circle"></i> Nuevo Levantamiento
-                            </a>
-                        </div>
+                        <a href="benchmark_levantamientos.php" class="btn btn-light text-primary fw-bold"><i class="fas fa-plus-circle"></i> Nuevo Levantamiento</a>
+                    </div>
+                </div>
+
+                <!-- FILTRO POR COMPETIDOR -->
+                <div class="card kpi-card mb-4">
+                    <div class="card-body py-3">
+                        <form method="get" class="row g-2 align-items-center">
+                            <div class="col-auto">
+                                <label for="fCompetidor" class="col-form-label fw-bold small"><i class="fas fa-building text-primary"></i> Competidor</label>
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-xl-3">
+                                <select id="fCompetidor" name="id_competidor" class="form-select" onchange="this.form.submit()">
+                                    <option value="">Todos los competidores</option>
+                                    <?php foreach ($competidores as $c): ?>
+                                        <option value="<?= (int)$c['id'] ?>" <?= ($fCompetidor === (int)$c['id']) ? 'selected' : '' ?>>
+                                            <?= escapar($c['nombre']) ?><?= ((int)$c['estado'] === 1) ? '' : ' (inactivo)' ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <?php if ($fCompetidor !== null): ?>
+                                <div class="col-auto">
+                                    <a href="benchmark_tabla_comparativa.php" class="btn btn-light-secondary btn-sm"><i class="fas fa-eraser"></i> Quitar filtro</a>
+                                </div>
+                            <?php endif; ?>
+                        </form>
                     </div>
                 </div>
 
@@ -214,32 +236,6 @@ function escapar($valor) {
                     </div>
                 </div>
 
-                <!-- MINI DASHBOARD: 2 GRÁFICAS APEXCHARTS DE MAZER -->
-                <div class="row g-3 mb-4">
-                    <div class="col-12 col-lg-4">
-                        <div class="card kpi-card h-100">
-                            <div class="card-header bg-transparent pb-0">
-                                <h5 class="card-title fs-6 fw-bold mb-1"><i class="bi bi-pie-chart text-primary"></i> Ventaja en Precios</h5>
-                                <p class="text-muted small mb-0">Proporción general Banasupro vs Competencia</p>
-                            </div>
-                            <div class="card-body d-flex align-items-center justify-content-center p-2">
-                                <div id="chartDonut" style="width: 100%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-lg-8">
-                        <div class="card kpi-card h-100">
-                            <div class="card-header bg-transparent pb-0">
-                                <h5 class="card-title fs-6 fw-bold mb-1"><i class="bi bi-bar-chart-steps text-primary"></i> Comparativa de Precios por Producto (L.)</h5>
-                                <p class="text-muted small mb-0">Muestra comparativa directa de los últimos levantamientos</p>
-                            </div>
-                            <div class="card-body p-2">
-                                <div id="chartBarras"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- TABLA DETALLADA -->
                 <div class="card kpi-card">
                     <div class="card-header d-flex justify-content-between align-items-center">
@@ -260,12 +256,13 @@ function escapar($valor) {
                                         <th class="text-end">DIF. %</th>
                                         <th class="text-center">ESTATUS</th>
                                         <th>NOTAS</th>
+                                        <th class="text-center">VER</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php if (empty($detalles)): ?>
                                         <tr>
-                                            <td colspan="10" class="text-center text-muted py-4">No hay registros comparativos disponibles.</td>
+                                            <td colspan="11" class="text-center text-muted py-4">No hay registros comparativos disponibles.</td>
                                         </tr>
                                     <?php else: ?>
                                         <?php 
@@ -278,6 +275,11 @@ function escapar($valor) {
                                             $precioPropio = (float)($row['precio_propio'] ?? $row['PRECIO_PROPIO'] ?? 0);
                                             $precioComp = (float)($row['precio_competencia'] ?? $row['PRECIO_COMPETENCIA'] ?? 0);
                                             $obs = $row['observaciones'] ?? $row['OBSERVACIONES'] ?? '-';
+                                            $linkAnalisis = 'benchmark_analisis.php?' . http_build_query([
+                                                'id_producto' => (int)($row['id_producto'] ?? 0),
+                                                'desde' => date('Y-m-d', strtotime('-89 days')),
+                                                'hasta' => $hoy,
+                                            ]);
 
                                             $difLempiras = $precioComp - $precioPropio;
                                             $difPorcentaje = ($precioPropio > 0) ? ($difLempiras / $precioPropio) * 100 : 0;
@@ -309,6 +311,11 @@ function escapar($valor) {
                                                 </td>
                                                 <td class="text-center"><?= $estatusHtml ?></td>
                                                 <td><?= escapar($obs) ?></td>
+                                                <td class="text-center">
+                                                    <a href="<?= escapar($linkAnalisis) ?>" class="btn btn-sm btn-outline-primary" title="Ver evolución de este producto en el análisis">
+                                                        <i class="fas fa-chart-line"></i>
+                                                    </a>
+                                                </td>
                                             </tr>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
@@ -326,7 +333,6 @@ function escapar($valor) {
     
     <script src="../../assets/js/bootstrap.bundle.min.js"></script>
     <script src="../../assets/vendors/simple-datatables/simple-datatables.js"></script>
-    <script src="../../assets/vendors/apexcharts/apexcharts.min.js"></script>
     
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -339,101 +345,6 @@ function escapar($valor) {
                 });
             }
 
-            // Datos PHP a JS
-            const totalBarato = <?= (int)$totalBanaBarato ?>;
-            const totalCaro = <?= (int)$totalBanaCaro ?>;
-            const totalIgual = <?= (int)$totalIgual ?>;
-
-            // 1. Gráfica Donut (Ventaja Competitiva)
-            const donutOptions = {
-                series: (totalBarato === 0 && totalCaro === 0 && totalIgual === 0) ? [1] : [totalBarato, totalCaro, totalIgual],
-                labels: (totalBarato === 0 && totalCaro === 0 && totalIgual === 0) ? ['Sin datos'] : ['Banasupro más Barato', 'Banasupro más Caro', 'Mismo Precio'],
-                colors: (totalBarato === 0 && totalCaro === 0 && totalIgual === 0) ? ['#e0e0e0'] : ['#198754', '#dc3545', '#0dcaf0'],
-                chart: {
-                    type: 'donut',
-                    height: 250,
-                    toolbar: { show: false }
-                },
-                plotOptions: {
-                    pie: {
-                        donut: {
-                            size: '68%',
-                            labels: {
-                                show: true,
-                                total: {
-                                    show: true,
-                                    label: 'Muestras',
-                                    formatter: () => '<?= $totalComparados ?>'
-                                }
-                            }
-                        }
-                    }
-                },
-                legend: {
-                    position: 'bottom',
-                    fontSize: '12px'
-                },
-                dataLabels: { enabled: false }
-            };
-            const donutChart = new ApexCharts(document.querySelector("#chartDonut"), donutOptions);
-            donutChart.render();
-
-            // 2. Gráfica de Barras Comparativa (Banasupro vs Competidor)
-            // JSON_HEX_*: un nombre con "</script>" no puede cerrar este bloque (XSS)
-            const categoriasBar = <?= json_encode($chartLabels, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-            const banaPrecios = <?= json_encode($chartBanaPrecios) ?>;
-            const compPrecios = <?= json_encode($chartCompPrecios) ?>;
-
-            const barOptions = {
-                series: [{
-                    name: 'Banasupro',
-                    data: banaPrecios
-                }, {
-                    name: 'Competidor',
-                    data: compPrecios
-                }],
-                chart: {
-                    type: 'bar',
-                    height: 250,
-                    toolbar: { show: false }
-                },
-                colors: ['#435ebe', '#f59e0b'],
-                plotOptions: {
-                    bar: {
-                        horizontal: false,
-                        columnWidth: '50%',
-                        borderRadius: 4
-                    }
-                },
-                dataLabels: { enabled: false },
-                stroke: {
-                    show: true,
-                    width: 2,
-                    colors: ['transparent']
-                },
-                xaxis: {
-                    categories: categoriasBar.length > 0 ? categoriasBar : ['Sin registros'],
-                    labels: {
-                        style: { fontSize: '11px' },
-                        rotate: -20
-                    }
-                },
-                yaxis: {
-                    title: { text: 'Precio (L.)' }
-                },
-                fill: { opacity: 1 },
-                tooltip: {
-                    y: {
-                        formatter: val => "L. " + parseFloat(val).toFixed(2)
-                    }
-                },
-                legend: {
-                    position: 'top',
-                    fontSize: '12px'
-                }
-            };
-            const barChart = new ApexCharts(document.querySelector("#chartBarras"), barOptions);
-            barChart.render();
         });
     </script>
     <script src="../../assets/js/main.js"></script>
