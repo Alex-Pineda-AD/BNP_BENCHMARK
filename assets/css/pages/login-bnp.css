@@ -1,0 +1,63 @@
+/* Login Banasupro: una sola tarjeta centrada sobre fondo de marca.
+   Todo cuelga de .bnp-login para no afectar otras pantallas. */
+.bnp-login { --bnp-navy: #25396f; --bnp-blue: #435ebe; --bnp-ink: #1f2d4d; --bnp-muted: #6b7a90; --bnp-line: #dfe5ee; --bnp-gold: #f4b942;
+    font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif; background: #1c2c59; }
+.bnp-login #auth { height: auto; min-height: var(--layout-height); display: flex; align-items: center; justify-content: center; padding: 2.5rem 1rem; position: relative; overflow: hidden;
+    background: #1c2c59 url('../../images/bg/login-fondo-color.svg') no-repeat center / cover; }
+
+.bnp-wrap { position: relative; z-index: 1; width: 100%; max-width: 480px; }
+
+/* ---------- Tarjeta ---------- */
+.bnp-card { background: #fff; border-radius: 1.25rem; overflow: hidden; box-shadow: 0 30px 70px rgba(37, 57, 111, .28), 0 4px 14px rgba(37, 57, 111, .12); }
+.bnp-card-bar { height: .45rem; background: linear-gradient(90deg, #1d3f8f 0%, #4f7a38 38%, #bd603b 68%, #fccf1d 100%); }
+.bnp-card-body { padding: 2.5rem 2.5rem 2rem; }
+.bnp-brand { display: flex; justify-content: center; margin-bottom: 1.75rem; }
+.bnp-brand-logo { display: block; height: 4.2rem; width: auto; }
+.bnp-heading { text-align: center; margin-bottom: 1.75rem; }
+.bnp-login .auth-title { font-size: 1.9rem; font-weight: 800; color: var(--bnp-navy); letter-spacing: -.03rem; margin-bottom: .35rem; }
+.bnp-login .auth-subtitle { font-size: .98rem; line-height: 1.6; color: var(--bnp-muted); margin: 0; }
+
+.bnp-login .form-label { font-size: .9rem; font-weight: 700; color: #304765; margin-bottom: .45rem; }
+.bnp-field { position: relative; }
+.bnp-field > i:first-child { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-size: 1.15rem; color: #98a4b8; pointer-events: none; transition: color .15s; }
+.bnp-field .form-control { height: 3.25rem; padding: .75rem 1rem .75rem 2.9rem; font-size: 1rem; color: var(--bnp-ink);
+    background-color: #f8fafc; border: 1px solid var(--bnp-line); border-radius: .65rem; transition: border-color .15s, box-shadow .15s, background-color .15s; }
+.bnp-field .form-control::placeholder { color: #a9b3c3; }
+.bnp-field .form-control:focus { background-color: #fff; border-color: #8296dd; box-shadow: 0 0 0 .22rem rgba(67, 94, 190, .12); }
+.bnp-field:focus-within > i:first-child { color: var(--bnp-blue); }
+.bnp-field .form-control#login-password { padding-right: 3.2rem; }
+.bnp-toggle { position: absolute; right: .4rem; top: 50%; transform: translateY(-50%); width: 2.5rem; height: 2.5rem; border: 0; border-radius: .5rem;
+    background: transparent; color: #6b7a90; display: flex; align-items: center; justify-content: center; transition: background-color .15s, color .15s; }
+.bnp-toggle i { font-size: 1.15rem; line-height: 1; }
+.bnp-toggle:hover { background: #eaf0f8; color: var(--bnp-blue); }
+.bnp-toggle:focus-visible { outline: 2px solid var(--bnp-blue); outline-offset: 1px; }
+
+.bnp-submit { width: 100%; height: 3.25rem; margin-top: .5rem; font-size: 1.02rem; font-weight: 700; letter-spacing: .01rem; border-radius: .65rem;
+    background: var(--bnp-blue); border-color: var(--bnp-blue); box-shadow: 0 6px 16px rgba(67, 94, 190, .28); transition: transform .12s, box-shadow .15s, background-color .15s;
+    display: flex; align-items: center; justify-content: center; gap: .6rem; }
+.bnp-submit:hover { background: #3a52a8; border-color: #3a52a8; box-shadow: 0 8px 20px rgba(67, 94, 190, .36); }
+.bnp-submit:active { transform: translateY(1px); }
+.bnp-submit-spinner { display: none; }
+.bnp-submit.is-loading { pointer-events: none; opacity: .9; }
+.bnp-submit.is-loading .bnp-submit-spinner { display: inline-block; }
+.bnp-submit.is-loading .bnp-submit-text::after { content: '…'; }
+
+/* Aviso de error / sesión requerida (js/login-notice.js solo cambia el texto y quita hidden) */
+.bnp-notice { margin: 0 0 1.25rem; padding: .85rem 1rem; font-size: .92rem; line-height: 1.5; color: #7a1f2b; background: #fdeff0;
+    border: 1px solid #f6cfd3; border-left: 4px solid #e0485a; border-radius: .6rem; }
+.bnp-notice[hidden] { display: none; }
+
+.bnp-help { margin: 1.5rem 0 0; padding-top: 1.1rem; border-top: 1px solid #eef1f6; text-align: center; font-size: .84rem; color: #8a96a8; }
+
+/* ---------- Institucional, bajo la tarjeta ---------- */
+.bnp-about { margin-top: 1.75rem; text-align: center; color: #34466b; }
+.bnp-about h2 { margin: 0 0 .6rem; font-size: 1.05rem; font-weight: 800; letter-spacing: .02rem; color: var(--bnp-navy); }
+.bnp-about h2::after { content: ''; display: block; width: 2.6rem; height: 3px; margin: .55rem auto 0; border-radius: 3px; background: var(--bnp-gold); }
+.bnp-about p { margin: 0 0 .6rem; font-size: .88rem; line-height: 1.65; }
+.bnp-about .bnp-copy { margin-top: 1rem; font-size: .78rem; color: #6b7a90; }
+
+@media screen and (max-width: 575px) {
+    .bnp-card-body { padding: 2rem 1.4rem 1.6rem; }
+    .bnp-brand-logo { height: 3.4rem; }
+    .bnp-login .auth-title { font-size: 1.7rem; }
+}
