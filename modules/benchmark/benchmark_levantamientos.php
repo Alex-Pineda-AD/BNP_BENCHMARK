@@ -4,6 +4,7 @@ header('Cache-Control: no-store');
 
 require_once __DIR__ . '/../../connection/connection.php';
 require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
+require_once __DIR__ . '/../../includes/benchmark_auditoria.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
@@ -71,6 +72,7 @@ try {
         RETURNING id, codigo, nombre_producto, categoria, precio_referencia
     ");
 
+    benchmark_auditoria_contexto($pdo, 'sync_softland'); // auditoría: cambios por sincronización
     foreach ($softlandProds as $sp) {
         $stmtSync->execute([
             $sp['codigo'],

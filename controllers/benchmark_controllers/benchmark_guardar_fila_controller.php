@@ -12,6 +12,7 @@ date_default_timezone_set('America/Tegucigalpa');
 
 require_once __DIR__ . '/../../connection/connection.php';
 require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
+require_once __DIR__ . '/../../includes/benchmark_auditoria.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
@@ -80,6 +81,7 @@ try {
     }
 
     $pdo->beginTransaction();
+    benchmark_auditoria_contexto($pdo); // auditoría: quién guarda el precio
 
     // 1. Buscar cabecera de levantamiento del día para este competidor y usuario
     $stmtCheck = $pdo->prepare("

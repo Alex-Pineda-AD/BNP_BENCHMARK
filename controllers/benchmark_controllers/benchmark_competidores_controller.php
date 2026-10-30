@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../connection/connection.php';
 require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
+require_once __DIR__ . '/../../includes/benchmark_auditoria.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
@@ -48,6 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
+        // Auditoría: indica a PostgreSQL qué usuario escribe
+        benchmark_auditoria_contexto($pdo);
+
         if (empty($id)) {
             // INSERTAR NUEVO
             $stmt = $pdo->prepare('INSERT INTO benchmark.benchmark_competidores (nombre, descripcion, estado) VALUES (?, ?, ?)');
