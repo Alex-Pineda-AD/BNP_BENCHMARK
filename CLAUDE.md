@@ -1,6 +1,6 @@
 # BNP-BenchMark — contexto para Claude
 
-Última actualización: 2026-10-30. Rama de trabajo: `benchmarkv3` (último commit subido a GitHub: `c208d86`; los cambios del 29/10 están preparados pero sin commit/push, ver «Estado al 2026-10-29» y «Estado al 2026-10-30»; los del 30/10 tampoco tienen commit).
+Última actualización: 2026-11-02. Rama de trabajo: `benchmarkv3` (último commit `d20c301`, ya subido a GitHub: coincide con `origin/benchmarkv3`; los cambios del 29/10, 30/10 y 02/11 ya tienen commit y push).
 
 ## Reglas del usuario (obligatorias)
 - **Preguntar antes de cada cambio** de archivos, base de datos, commit o push: describir qué se va a hacer y esperar un "sí". Leer código y hacer consultas de solo lectura no requiere permiso.
@@ -34,7 +34,7 @@ Comparación de precios de Banasupro contra la competencia.
 
 ## Estado al 2026-10-29
 - Hecho: consultas calificadas con `benchmark.` (24 líneas en 7 archivos), módulo de análisis, tabla comparativa solo de datos, banners unificados, fuentes FontAwesome locales (`assets/vendors/webfonts`), URL del guardado en relativo (`benchmark_levantamientos.js`/`.php`), conexión Softland desde el servidor probada (lee la vista de precios).
-- Preparado sin commit: los 7 archivos de Benchmark + `sql/benchmark_esquema_completo.sql`, además de `benchmark_levantamientos.js`/`.php` (URL relativa).
+- Preparado (ya con commit y push al 02/11): los 7 archivos de Benchmark + `sql/benchmark_esquema_completo.sql`, además de `benchmark_levantamientos.js`/`.php` (URL relativa).
 - `sql/benchmark_esquema_completo.sql` y los demás scripts de `sql/` siguen creando las tablas **sin** el prefijo `benchmark.` (en `public`). Falta actualizarlos si se quieren usar tal cual en el servidor.
 - Hay una guía paso a paso para repetir la conexión SQL Server desde otro servidor (documento de Claude del usuario).
 
@@ -49,6 +49,13 @@ Comparación de precios de Banasupro contra la competencia.
 - **Login** (`index.html` es el login **general de todos los módulos**, no solo de Benchmark): rediseñado como tarjeta centrada con el logo de Banasupro, fondo gris con hojas de colores, texto institucional debajo y botón mostrar/ocultar contraseña. Archivos que lo componen: `index.html`, `assets/css/pages/login-bnp.css`, `js/login-bnp.js`, `assets/images/bg/login-fondo-color.svg`, `assets/images/logo/logo_banasupro_horizontal.png`. Sin uso (prescindibles): `assets/images/bg/login-fondo.svg` (versión oscura de respaldo), `logo_banasupro_b.png`, `logo_banasupro_b_marca.png`. `controllers/login2.php` y los campos `USUARIO` / `PASSWORD` no cambiaron; `index2.html` y `pages/login.css` son un intento viejo sin enlazar.
 - **Incidente en el servidor**: se subieron por error los `connection/*.local.php` de la PC local. Hay que dejar en el servidor `database.local.php` (host `localhost`, base `banasupro2`, usuario y clave del servidor, `schema` = `public`) y `database_sqlserver.local.php` (`server` = `IP,1433`, usuario `benchmark_lector`, su clave; nunca `null`). Las claves no se pegan en el chat.
 - El servidor todavía tiene los archivos viejos de login y auditoría. URL del sistema: `http://IP-DEL-SERVIDOR/benchmark/` (la IP es la que se usa en WinSCP; el celular debe estar en la misma red).
+
+## Estado al 2026-11-02
+- **Categoría de los artículos = `Clasificacion3` de Softland** (hecho, commit `d20c301`): línea ~39 de `modules/benchmark/benchmark_levantamientos.php` ahora es `COALESCE(NULLIF(LEFT(LTRIM(RTRIM(Clasificacion3)), 100), ''), 'General') AS Categoria`. El `WHERE` no cambia (mismos 30 artículos). El primer sync después del cambio actualiza hasta 30 filas (bitácora con origen `sync_softland`). Si el Softland simulado local no tiene la columna `Clasificacion3`, cae al respaldo de Postgres (revisar `error.log`). Sin probar aún en el navegador.
+- **Cronograma PM** actualizado al 02/11/2026 (Excel `Cronograma_PM_Benchmark_2026-11-02.xlsx`; en el proyecto de claude.ai hay que subirlo y quitar el viejo a mano): 20 tareas, 11 completadas, 2 en espera (T-04 y T-10, por la lista oficial de productos del cliente) y 7 pendientes. Pendiente de desarrollo: **T-14 Exportación a Excel** y **T-15 Exportación a PDF** de la tabla comparativa (05–12/11), luego pruebas, documentación, demo y ajustes.
+- **Decisión: el sistema solo exporta, no importa archivos** (se quitó del cronograma la importación de la lista de productos). La lista oficial del cliente solo afecta al catálogo (T-10) y al análisis (T-04).
+- Revisión del esquema con el diagrama de pgAdmin: la base local coincide con el script de auditoría. La FK de `id_usuario` a `public.usuarios` no se dibuja porque el diagrama solo muestra el esquema `benchmark` (se puede comprobar en `pg_constraint`). Observaciones sin decidir: falta unidad/presentación, y no se puede registrar «el competidor no lo vende» porque `precio_competencia` debe ser > 0.
+- El `.md` guarda el código de empleado del usuario (ver «Datos del usuario»).
 
 ## Preparar otra computadora
 1. PHP de XAMPP es 8.2 ZTS x64 → copiar `php_pdo_sqlsrv_82_ts_x64.dll` (Microsoft Drivers for PHP for SQL Server 5.11/5.12) a `C:\xampp\php\ext\` y agregar `extension=pdo_sqlsrv_82_ts_x64` en `php.ini`. Requiere ODBC Driver 17 o 18. Reiniciar Apache. Verificar con `C:\xampp\php\php.exe -m` (debe salir `pdo_sqlsrv`).
@@ -96,11 +103,11 @@ Columnas eliminadas a propósito: `benchmark_precios_detalle.nombre_producto_com
 - SweetAlert2 local: `assets/vendors/sweetalert2/sweetalert2.all.min.js` (v10.13.0), no CDN.
 
 ## Pendientes / ideas
-- **Mañana (31/10): la categoría debe salir siempre de `Clasificacion3` de Softland.** Hoy sale de `COALESCE(Clasificacion2, Clasificacion1, 'General') AS Categoria` en la consulta de `modules/benchmark/benchmark_levantamientos.php` (~línea 38). Propuesta pendiente de confirmar: `COALESCE(NULLIF(LEFT(LTRIM(RTRIM(Clasificacion3)), 100), ''), 'General') AS Categoria`; el `WHERE` no cambia (mismos 30 artículos) y no hace falta migración (el upsert corrige `categoria` solo; la bitácora registrará hasta 30 UPDATE con origen `sync_softland`). Falta decidir qué mostrar si `Clasificacion3` viene vacía (propuesto `'General'`) y que el Softland simulado local tenga esa columna.
 - **Servidor, pendiente**: (1) correr `benchmark_esquema_auditoria_completo.sql` en la base general; (2) restaurar los dos `*.local.php` de `connection/`; (3) subir `includes/benchmark_auditoria.php` y los 3 PHP que la usan, más los 5 archivos del login; (4) probar guardando un precio y consultar `benchmark.benchmark_auditoria` (debe salir el `id_usuario`).
-- Campos extra que se pensó proponer a la jefa (sin decidir): precio en oferta, disponibilidad, unidad/presentación, marca comparada, estado del levantamiento (borrador/enviado/aprobado), foto de evidencia.
+- Campos extra que se pensó proponer a la jefa (sin decidir; unidad/presentación y disponibilidad son los más importantes para que la comparación sea justa): precio en oferta, disponibilidad, unidad/presentación, marca comparada, estado del levantamiento (borrador/enviado/aprobado), foto de evidencia.
+- Construir las exportaciones a Excel y PDF de la tabla comparativa (T-14 y T-15 del cronograma).
 - Guardar el script de auditoría en `sql/` y actualizar los scripts viejos de `sql/` (siguen creando las tablas en `public`, sin `benchmark.`).
-- **Siguiente sesión**: hacer commit y push a `benchmarkv3` (desde Git Bash); subir al servidor `benchmark_levantamientos.js` y `.php`; comprobar que agregar un levantamiento guarda y que Levantamientos carga los productos de Softland; borrar del servidor los archivos temporales de prueba (`info_tmp.php`, `prueba_sql_tmp.php`).
+- **Siguiente sesión**: subir al servidor `benchmark_levantamientos.js` y `.php`; comprobar que agregar un levantamiento guarda y que Levantamientos carga los productos de Softland; borrar del servidor los archivos temporales de prueba (`info_tmp.php`, `prueba_sql_tmp.php`).
 - **Cambiar la clave de `benchmark_lector`** (apareció en capturas): `ALTER LOGIN benchmark_lector WITH PASSWORD = '...'` y actualizar `database_sqlserver.local.php` del servidor.
 - Verificar en el servidor que existe el índice único de `benchmark_productos(codigo)` (lo necesita el `ON CONFLICT (codigo)` del upsert).
 - **Cambiar la contraseña de Postgres**: la anterior quedó en el historial de git (commit `78845f4`). Coordinar con los amigos que comparten la base; luego actualizar `database.local.php`.
