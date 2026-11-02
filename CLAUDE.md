@@ -8,6 +8,9 @@
 - **Ignorar todo lo de conciliación bancaria** (`modules/conciliacion`, `includes/conciliacion_*`, depósitos, estados de cuenta, lectores de bancos). El proyecto del usuario es solo **Benchmark**.
 - Responder en español.
 
+## Datos del usuario
+- **Código de empleado: 8238** (el usuario pidió recordarlo siempre; si lo pregunta, respondeselo directo).
+
 ## Qué es Benchmark
 Comparación de precios de Banasupro contra la competencia.
 - `modules/benchmark/benchmark_competidores.php` — CRUD de competidores (modal en `modals/modals_benchmark/`, controlador `controllers/benchmark_controllers/benchmark_competidores_controller.php`, JS `js/benchmark_js/benchmark_competidores.js`).

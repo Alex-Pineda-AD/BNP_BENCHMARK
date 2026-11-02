@@ -36,7 +36,7 @@ try {
             SELECT 
                 ARTICULO,
                 ArticuloDescripcion,
-                COALESCE(Clasificacion2, Clasificacion1, 'General') AS Categoria,
+                COALESCE(NULLIF(LEFT(LTRIM(RTRIM(Clasificacion3)), 100), ''), 'General') AS Categoria,
                 Precio,
                 NivelPrecio,
                 ROW_NUMBER() OVER(
