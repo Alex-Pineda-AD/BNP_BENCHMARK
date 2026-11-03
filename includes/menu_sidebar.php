@@ -6,6 +6,8 @@ $sidebarUsuarioNombre=(string)($_SESSION['user_nombre']??'Usuario');
 $sidebarUsuarioLogin=$sidebarUsuarioNombre;
 $sidebarUsuarioRol='Rol no disponible';
 $sidebarPuedeControl=false;
+$sidebarPuedeSolicitudesUsuarios=false;
+$sidebarSolicitudesPendientes=0;
 if(!empty($_SESSION['user_id'])) {
     try {
         require_once __DIR__.'/../connection/database.php';
@@ -18,6 +20,24 @@ if(!empty($_SESSION['user_id'])) {
             $sidebarUsuarioRol=(string)($sidebarUsuarioDatos['ROL']??'Rol no disponible');
             require_once __DIR__.'/conciliacion_periodos.php';
             $sidebarPuedeControl=conciliacionPropietario(database(),(int)$_SESSION['user_id']);
+            require_once __DIR__.'/solicitudes_creacion_usuarios.php';
+            $sidebarRolSesion=(int)($_SESSION['id_rol']??0);
+            $sidebarPuedeSolicitudesUsuarios=puedeEnviarSolicitudesUsuarios($sidebarRolSesion)
+                || $sidebarRolSesion===SOLICITUDES_ROL_SUPERUSUARIO
+                || strtoupper(trim($sidebarUsuarioRol))==='ADMINISTRADOR IT';
+            if($sidebarPuedeSolicitudesUsuarios) {
+                try {
+                    if(puedeEnviarSolicitudesUsuarios($sidebarRolSesion)) {
+                        $q=database()->prepare("SELECT COUNT(*) FROM solicitudes_creacion_usuarios WHERE estado='PENDIENTE' AND usuario_solicita=?");
+                        $q->execute([(int)$_SESSION['user_id']]);
+                    } else {
+                        $q=database()->query("SELECT COUNT(*) FROM solicitudes_creacion_usuarios WHERE estado='PENDIENTE'");
+                    }
+                    $sidebarSolicitudesPendientes=(int)$q->fetchColumn();
+                } catch(Throwable $solicitudesSidebarError) {
+                    // El enlace sigue disponible mientras se instala la migración.
+                }
+            }
         }
     } catch(Throwable $sidebarUsuarioError) { error_log('No se pudo consultar el usuario del sidebar: '.$sidebarUsuarioError->getMessage()); }
 }
@@ -189,7 +209,7 @@ if(!empty($_SESSION['user_id'])) {
                         <?php }  #    ...::::: FIN CONTABLE :::::...?>
                         
                         <!-- ...::::: BENCHMARK :::::... -->
-                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6], true)): ?>
+                        <?php if (in_array((int)($_SESSION['id_rol'] ?? 0), [5, 6, 7], true)): ?>
                         <li class="sidebar-title"><i class="fas fa-chart-line me-1"></i> Benchmark</li>
                         <li class="sidebar-item <?= basename($_SERVER['SCRIPT_NAME']) === 'benchmark_competidores.php' ? 'active' : '' ?>">
                             <a href="../benchmark/benchmark_competidores.php" class="sidebar-link">
@@ -225,6 +245,13 @@ if(!empty($_SESSION['user_id'])) {
                                 <i class="fas fa-users-cog"></i>
                                 <span>Usuarios</span>
                             </a>
+                        </li>
+                        <?php endif; ?>
+
+                        <!-- ...::::: SOLICITUDES DE USUARIOS :::::... -->
+                        <?php if($sidebarPuedeSolicitudesUsuarios): ?>
+                        <li class="sidebar-item <?=basename($_SERVER['SCRIPT_NAME'])==='solicitudes.php'?'active':''?>">
+                            <a href="../usuarios/solicitudes.php" class="sidebar-link"><i class="bi bi-person-plus"></i><span>Solicitudes de usuarios</span><?php if($sidebarSolicitudesPendientes>0): ?><span class="badge bg-danger ms-auto"><?=$sidebarSolicitudesPendientes?></span><?php endif; ?></a>
                         </li>
                         <?php endif; ?>
 

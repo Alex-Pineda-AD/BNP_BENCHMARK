@@ -1,6 +1,8 @@
 <?php
 session_start();
 require_once __DIR__ . '/../connection/database.php';
+require_once __DIR__ . '/../includes/usuarios_roles.php';
+require_once __DIR__ . '/../includes/solicitudes_creacion_usuarios.php';
 
 if (empty($_SESSION['user_id'])) {
     http_response_code(401);
@@ -22,7 +24,7 @@ if (!is_string($_POST['token'] ?? null) || !hash_equals($_SESSION['usuarios_toke
 $pdo = database();
 try {
     // Recibimos los mismos nombres que tienen los campos de los modales.
-    foreach (['nombreCompleto', 'dni', 'telefono', 'correo', 'usuario', 'pass', 'idRol', 'idUsuario', 'bande'] as $campo) {
+    foreach (['nombreCompleto', 'dni', 'telefono', 'correo', 'usuario', 'pass', 'idRol', 'idAreas', 'idUsuario', 'bande'] as $campo) {
         if (isset($_POST[$campo]) && !is_string($_POST[$campo])) {
             throw new Exception('Los datos del formulario no son válidos.');
         }
@@ -34,6 +36,7 @@ try {
     $vr_usuario = trim($_POST['usuario'] ?? '');
     $vr_password = $_POST['pass'] ?? '';
     $vr_id_rol = $_POST['idRol'] ?? '';
+    $vr_id_area = $_POST['idAreas'] ?? '';
     $id_usuario = $_POST['idUsuario'] ?? '0';
     $bandera = $_POST['bande'] ?? '';
     $vr_idCentroventas = $_POST['idCentroventas'] ?? [];
@@ -42,6 +45,11 @@ try {
 
     if (!in_array($bandera, ['1', '2'], true)) {
         throw new Exception('La acción no es válida.');
+    }
+    // El alta manual es solo del superusuario o del administrador de IT; los demás envían una solicitud.
+    if ($bandera === '1' && !puedeCrearUsuariosDirecto($pdo, (int) $_SESSION['user_id'])) {
+        http_response_code(403);
+        exit('Solo el superusuario o el administrador de IT puede crear usuarios. Envía una solicitud desde "Solicitudes de usuarios".');
     }
 
 
@@ -62,8 +70,8 @@ try {
     }
 
 
-    if (!ctype_digit($vr_id_rol) || !ctype_digit($id_usuario) || !is_array($vr_idCentroventas)) {
-        throw new Exception('Selecciona un rol y centros de venta válidos.');
+    if (!ctype_digit($vr_id_rol) || !ctype_digit($vr_id_area) || !ctype_digit($id_usuario) || !is_array($vr_idCentroventas)) {
+        throw new Exception('Selecciona un rol, área y centros de venta válidos.');
     }
 
 
@@ -83,6 +91,21 @@ try {
     if (!$rol->fetch()) {
         throw new Exception('El rol seleccionado no está disponible.');
     }
+    // El rol 6 (Administrador Benchmark) solo asigna roles 6 y 7 y no cambia su propio rol.
+    $rolesPermitidos = usuarios_roles_gestionables((int) $_SESSION['id_rol']);
+    if ($rolesPermitidos !== null) {
+        if (!in_array((int) $vr_id_rol, $rolesPermitidos, true)) {
+            throw new Exception('No tienes permiso para asignar ese rol.');
+        }
+        if ($bandera === '2' && (int) $id_usuario === (int) $_SESSION['user_id'] && (int) $vr_id_rol !== (int) $_SESSION['id_rol']) {
+            throw new Exception('No puedes cambiar tu propio rol.');
+        }
+    }
+    $area = $pdo->prepare('SELECT ID FROM AREAS WHERE ID = ? AND ESTADO = 1');
+    $area->execute([$vr_id_area]);
+    if (!$area->fetch()) {
+        throw new Exception('El área seleccionada no está disponible.');
+    }
     $centros = $pdo->prepare('SELECT ID FROM centro_de_venta WHERE ID = ?');
     foreach ($vr_idCentroventas as $centro) {
         $centros->execute([$centro]);
@@ -101,25 +124,29 @@ try {
         case '1':
             $usuarios = $pdo->prepare('INSERT INTO usuarios
                 (USUARIO, PASSWORD, NOMBRE_COMPLETO, DNI, CORREO, FECHA_CREO,
-                 USUARIO_CREO, ID_ROL, NUM_TELEFONO, USUARIO_HASH, ESTADO)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1) RETURNING ID');
+                 USUARIO_CREO, ID_ROL, NUM_TELEFONO, USUARIO_HASH, ESTADO, ID_AREAS)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) RETURNING ID');
             $usuarios->execute([$vr_usuario, password_hash($vr_password, PASSWORD_DEFAULT),
                 $vr_nombre, $vr_dni, $vr_correo === '' ? null : $vr_correo, $vr_fecha,
-                $usuario_creo, $vr_id_rol, $vr_telefono, password_hash($vr_usuario, PASSWORD_DEFAULT)]);
+                $usuario_creo, $vr_id_rol, $vr_telefono, password_hash($vr_usuario, PASSWORD_DEFAULT), $vr_id_area]);
             $id_usuario = (string) $usuarios->fetchColumn();
             break;
 
         case '2':
-            $usuarios = $pdo->prepare('SELECT ID FROM usuarios WHERE ID = ? FOR UPDATE');
+            $usuarios = $pdo->prepare('SELECT ID, ID_ROL FROM usuarios WHERE ID = ? FOR UPDATE');
             $usuarios->execute([$id_usuario]);
-            if (!$usuarios->fetch()) {
+            $objetivo = $usuarios->fetch();
+            if (!$objetivo) {
                 throw new Exception('El usuario que intentas editar no existe.');
             }
+            if ($rolesPermitidos !== null && !in_array((int) $objetivo['ID_ROL'], $rolesPermitidos, true)) {
+                throw new Exception('No tienes permiso para editar este usuario.');
+            }
             $usuarios = $pdo->prepare('UPDATE usuarios SET USUARIO = ?, NOMBRE_COMPLETO = ?,
-                DNI = ?, CORREO = ?, ID_ROL = ?, NUM_TELEFONO = ?,
+                DNI = ?, CORREO = ?, ID_ROL = ?, NUM_TELEFONO = ?, ID_AREAS = ?,
                 FECHA_MODIFICO = ?, USUARIO_MODIFICO = ? WHERE ID = ?');
             $usuarios->execute([$vr_usuario, $vr_nombre, $vr_dni,
-                $vr_correo === '' ? null : $vr_correo, $vr_id_rol, $vr_telefono,
+                $vr_correo === '' ? null : $vr_correo, $vr_id_rol, $vr_telefono, $vr_id_area,
                 $vr_fecha, $usuario_creo, $id_usuario]);
 
             // Si la contraseña queda vacía, conservamos la contraseña actual.

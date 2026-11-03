@@ -2,7 +2,7 @@
 // Control de acceso y token CSRF compartidos por las páginas y controladores de Benchmark.
 // Requiere session_start() previo.
 
-const BENCHMARK_ROLES = [5, 6];
+const BENCHMARK_ROLES = [5, 6, 7];
 
 function benchmark_tiene_acceso(): bool
 {

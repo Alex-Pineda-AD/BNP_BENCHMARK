@@ -1,0 +1,42 @@
+.crear-usuario{max-width:1400px;margin:auto}
+.solicitud-back{display:inline-flex;align-items:center;gap:8px;font-size:.88rem;margin-bottom:24px}
+.solicitud-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px}
+.solicitud-heading h3{font-size:1.8rem;margin-bottom:8px}
+.solicitud-eyebrow,.solicitud-step{font-size:.68rem;font-weight:700;letter-spacing:.09em;color:#6c7891}
+.solicitud-eyebrow{margin-bottom:8px}
+.solicitud-status{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;border:1px solid #f1dfb6;border-radius:30px;padding:8px 13px;background:#fff8e9;color:#8a6219;font-size:.78rem;font-weight:600}
+.solicitud-status>span{width:6px;height:6px;border-radius:50%;background:#c18a26}
+.solicitud-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(330px,1fr);gap:24px;align-items:start}
+.solicitud-details{min-width:0}
+.solicitud-card{border:1px solid #e5e9f1;border-radius:14px;box-shadow:0 3px 12px #22345305;overflow:hidden;margin-bottom:24px}
+.solicitud-card .card-header{background:white;padding:24px 26px 18px;border-bottom:1px solid #eef0f5}
+.solicitud-card .card-header h4{font-size:1.05rem;margin:0 0 6px;display:flex;align-items:center;gap:9px}
+.solicitud-card .card-header p{font-size:.82rem;color:#7b8495;margin:0}
+.solicitud-card .card-body{padding:24px 26px}
+.solicitud-person{display:flex;align-items:center;gap:15px;margin-bottom:24px}
+.solicitud-avatar{display:grid;place-items:center;flex-shrink:0;width:50px;height:50px;border-radius:14px;background:#eef1fc;color:#435ebe;font-size:1.5rem}
+.solicitud-person h5{font-size:1rem;line-height:1.5;margin:0;overflow-wrap:anywhere}
+.solicitud-person p{font-size:.8rem;color:#7b8495;margin:3px 0 0}
+.solicitud-data{display:grid;grid-template-columns:1fr 1fr;gap:22px 20px;margin-bottom:24px}
+.solicitud-data dt{font-size:.75rem;font-weight:500;color:#7b8495;margin-bottom:5px}
+.solicitud-data dd{font-size:.85rem;margin:0;font-weight:600;overflow-wrap:anywhere;color:#35435c}
+.solicitud-motivo{padding:16px 18px;border-radius:9px;background:#f7f9fc}
+.solicitud-motivo h6{font-size:.75rem;margin-bottom:8px}
+.solicitud-motivo p{font-size:.83rem;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:#68758a}
+.solicitud-centros-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.solicitud-count{display:grid;place-items:center;min-width:32px;height:28px;border-radius:8px;background:#eef1fc;color:#435ebe;font-size:.8rem;font-weight:700}
+.solicitud-centros{list-style:none;padding:0;margin:0;max-height:260px;overflow-y:auto}
+.solicitud-centros li{display:flex;align-items:center;gap:12px;font-size:.82rem;padding:12px 0;border-bottom:1px solid #eef0f5;overflow-wrap:anywhere}
+.solicitud-centros li[hidden]{display:none}
+.solicitud-centros li:last-child{border-bottom:0}
+.solicitud-centros li>span:nth-child(2){flex:1;min-width:0}
+.solicitud-centro-id{font-size:.7rem;color:#7b8495;background:#f3f5f9;border-radius:5px;padding:3px 6px}
+.solicitud-step{display:block;margin-bottom:10px}
+.solicitud-credentials .form-label{font-size:.83rem;font-weight:600}
+.solicitud-credentials .form-control{min-height:46px}
+.solicitud-credentials .form-text{display:block;font-size:.73rem;line-height:1.6;margin-top:7px}
+.solicitud-result{display:flex;gap:10px;background:#f3f7ff;border:1px solid #e4ebfa;border-radius:9px;padding:15px;margin-bottom:22px;color:#526785}
+.solicitud-result p{font-size:.76rem;line-height:1.7;margin:0}
+.solicitud-footer-note{font-size:.71rem;line-height:1.6;text-align:center;color:#7b8495;margin:13px 0 0}
+@media(max-width:1100px){.solicitud-layout{grid-template-columns:1fr}.solicitud-heading{align-items:flex-start}.solicitud-status{white-space:normal}}
+@media(max-width:575px){.solicitud-heading{flex-direction:column}.solicitud-heading h3{font-size:1.5rem}.solicitud-data{grid-template-columns:1fr}.solicitud-card .card-header,.solicitud-card .card-body{padding:20px}.solicitud-layout{gap:0}}

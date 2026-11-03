@@ -23,6 +23,7 @@ document.getElementById('editUser').addEventListener('show.bs.modal', function (
     formulario.elements.correo.value = usuario.CORREO === '-' ? '' : (usuario.CORREO || '');
     formulario.elements.usuario.value = usuario.USUARIO;
     formulario.elements.idRol.value = usuario.ID_ROL;
+    formulario.elements.idAreas.value = usuario.ID_AREAS || '';
     formulario.elements.pass.value = '';
     formulario.elements.pass.type = 'password';
     var selector = formulario.querySelector('select[multiple]');

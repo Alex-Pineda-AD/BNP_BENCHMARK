@@ -71,7 +71,7 @@
                                         $centrosVenta=$pdo->prepare('
                                         SELECT ID, ROL
                                         FROM ROLES 
-                                        WHERE ESTADO!=0 ORDER BY ROL ASC');
+                                        WHERE ESTADO!=0 ' . usuarios_roles_sql('ID') . ' ORDER BY ROL ASC');
 
                                         $centrosVenta->execute();
                                         foreach ($centrosVenta as $cv ) {
@@ -79,6 +79,18 @@
                                         } ?>
                                         </select>
                                     </div>
+                                </div>
+                                <div class="col-6">
+                                    <label>Área: </label>
+                                    <select class="form-select" name="idAreas" required>
+                                        <option value="">Selecciona un área</option>
+                                        <?php
+                                        $areasDisponibles = $pdo->query('SELECT ID, DESCRIPCION FROM AREAS WHERE ESTADO = 1 ORDER BY DESCRIPCION');
+                                        foreach ($areasDisponibles as $area) {
+                                            echo '<option value="'.escapar($area['ID']).'">'.escapar($area['DESCRIPCION']).'</option>';
+                                        }
+                                        ?>
+                                    </select>
                                 </div>
                             </div>
                         </div>

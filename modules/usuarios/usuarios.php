@@ -3,6 +3,8 @@ session_start();
 header('Cache-Control: no-store');
 
 require_once __DIR__ . '/../../connection/database.php';
+require_once __DIR__ . '/../../includes/usuarios_roles.php';
+require_once __DIR__ . '/../../includes/solicitudes_creacion_usuarios.php';
 
 if (empty($_SESSION['user_id'])) {
     header('Location: ../../index.html?sesion=requerida');
@@ -19,9 +21,10 @@ if (empty($_SESSION['usuarios_token'])) {
     $_SESSION['usuarios_token'] = bin2hex(random_bytes(32));
 }
 $pdo = database();
+$puedeCrearUsuarios = puedeCrearUsuariosDirecto($pdo, (int) $_SESSION['user_id']); // alta manual: superusuario / administrador de IT
 
 $consulta = $pdo->prepare('
-    SELECT A.ID, A.DNI, A.NUM_TELEFONO, A.ID_ROL, A.USUARIO, A.NOMBRE_COMPLETO,
+    SELECT A.ID, A.DNI, A.NUM_TELEFONO, A.ID_ROL, A.ID_AREAS, D.DESCRIPCION AS AREA, A.USUARIO, A.NOMBRE_COMPLETO,
            COALESCE(A.CORREO, \'-\') CORREO,
            CASE 
                 WHEN A.ESTADO = 1 THEN \'Activo\'
@@ -31,7 +34,8 @@ $consulta = $pdo->prepare('
                    B.ROL
     FROM usuarios A
     LEFT JOIN roles B 
-    ON A.ID_ROL = B.ID ORDER BY A.ID
+    ON A.ID_ROL = B.ID
+    LEFT JOIN areas D ON D.ID = A.ID_AREAS WHERE 1=1 ' . usuarios_roles_sql('A.ID_ROL') . ' ORDER BY A.ID
 ');
 $consulta->execute();
 $usuarios = $consulta->fetchAll(PDO::FETCH_ASSOC);
@@ -93,7 +97,7 @@ function escapar($valor)
                                 </div>
                                 <?php unset($_SESSION['usuarios_mensaje'], $_SESSION['usuarios_tipo']); ?>
                             <?php endif; ?>
-                            <button type="button" class="btn btn-primary btn-s" data-bs-toggle="modal" data-bs-target="#addUser" data-bs-whatever="@mdo" > <i class="fas fa-user-plus"></i>&nbsp; Usuario</button>
+                            <?php if ($puedeCrearUsuarios): ?><button type="button" class="btn btn-primary btn-s" data-bs-toggle="modal" data-bs-target="#addUser" data-bs-whatever="@mdo" > <i class="fas fa-user-plus"></i>&nbsp; Usuario</button><?php endif; ?>
                             <table class="table table-striped table-xs" id="table1">
                                 <thead>
                                     <tr>
@@ -102,6 +106,7 @@ function escapar($valor)
                                         <th>CORREO</th>
                                         <th>ESTADO</th>
                                         <th>ROL</th>
+                                        <th>ÁREA</th>
                                         <th>ACCIONES</th>
                                     </tr>
                                 </thead>
@@ -115,6 +120,7 @@ function escapar($valor)
                                             <td><?= escapar($row['CORREO']) ?></td>
                                             <td><?= htmlspecialchars($row['ESTADO']) ?></td>
                                             <td><?= escapar($row['ROL']) ?></td>
+                                            <td><?= escapar($row['AREA'] ?? '') ?></td>
                                             <td><button type="button" class="btn btn-warning btn-sm text-dark " <?php echo $disabled ?> data-bs-toggle="modal" data-bs-target="#editUser" data-usuario="<?= escapar(json_encode($row, JSON_UNESCAPED_UNICODE)) ?>" data-centros="<?= escapar(json_encode($centrosPorUsuario[$row['ID']] ?? [])) ?>"> <i class="fas fa-user-edit"></i> Editar</button></td>
                                         </tr>
                                     <?php endforeach; ?>

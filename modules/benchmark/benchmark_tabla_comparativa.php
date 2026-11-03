@@ -162,6 +162,12 @@ function escapar($valor) {
                                     <a href="benchmark_tabla_comparativa.php" class="btn btn-light-secondary btn-sm"><i class="fas fa-eraser"></i> Quitar filtro</a>
                                 </div>
                             <?php endif; ?>
+                            <!-- EXPORTAR (respeta el filtro de competidor) -->
+                            <?php $qExport = ($fCompetidor !== null) ? '&id_competidor=' . (int)$fCompetidor : ''; ?>
+                            <div class="col-12 col-md-auto ms-md-auto d-flex gap-2">
+                                <a href="../../controllers/benchmark_controllers/benchmark_exportar_controller.php?formato=xlsx<?= $qExport ?>" class="btn btn-success btn-sm" title="Descargar en Excel"><i class="fas fa-file-excel"></i> Excel</a>
+                                <a href="../../controllers/benchmark_controllers/benchmark_exportar_controller.php?formato=pdf<?= $qExport ?>" class="btn btn-danger btn-sm" title="Descargar en PDF"><i class="fas fa-file-pdf"></i> PDF</a>
+                            </div>
                         </form>
                     </div>
                 </div>

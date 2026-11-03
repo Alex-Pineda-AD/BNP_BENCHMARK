@@ -45,7 +45,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                  header("Location: ../modules/conciliacion/depositos_revision.php");
             }elseif ($_SESSION['id_rol']==5) {
                  header("Location: ../modules/conciliacion/depositos_revision.php");
-            } elseif ($_SESSION['id_rol'] == 6) { 
+            } elseif (in_array((int) $_SESSION['id_rol'], [6, 7], true)) { 
             // Apuntando correctamente a tu carpeta benchmark y archivo
             header("Location: ../modules/benchmark/benchmark_competidores.php");
 }
