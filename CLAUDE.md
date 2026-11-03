@@ -1,10 +1,10 @@
 # BNP-BenchMark — contexto para Claude
 
-Última actualización: 2026-11-02. Rama de trabajo: `benchmarkv3` (último commit `d20c301`, ya subido a GitHub: coincide con `origin/benchmarkv3`; los cambios del 29/10, 30/10 y 02/11 ya tienen commit y push).
+Última actualización: 2026-11-03. Rama de trabajo: `benchmarkv3` (último commit `6a5b167`, ya subido a GitHub; los cambios del 29/10 al 03/11 tienen commit y push; sin Pull Request, `main` intacta).
 
 ## Reglas del usuario (obligatorias)
 - **Preguntar antes de cada cambio** de archivos, base de datos, commit o push: describir qué se va a hacer y esperar un "sí". Leer código y hacer consultas de solo lectura no requiere permiso.
-- **Nunca modificar las tablas `usuarios` y `roles`** de Postgres: son compartidas con proyectos de amigos del usuario (y con conciliación). Solo leerlas o referenciarlas.
+- **Nunca modificar las tablas `usuarios` y `roles`** de Postgres: son compartidas con proyectos de amigos del usuario (y con conciliación). Solo leerlas o referenciarlas, salvo lo que el usuario pida expresamente (ej. 03/11: roles 6 y 7 en `roles`; columna `id_areas` en `usuarios`).
 - **Ignorar todo lo de conciliación bancaria** (`modules/conciliacion`, `includes/conciliacion_*`, depósitos, estados de cuenta, lectores de bancos). El proyecto del usuario es solo **Benchmark**.
 - Responder en español.
 
@@ -57,6 +57,16 @@ Comparación de precios de Banasupro contra la competencia.
 - Revisión del esquema con el diagrama de pgAdmin: la base local coincide con el script de auditoría. La FK de `id_usuario` a `public.usuarios` no se dibuja porque el diagrama solo muestra el esquema `benchmark` (se puede comprobar en `pg_constraint`). Observaciones sin decidir: falta unidad/presentación, y no se puede registrar «el competidor no lo vende» porque `precio_competencia` debe ser > 0.
 - El `.md` guarda el código de empleado del usuario (ver «Datos del usuario»).
 
+## Estado al 2026-11-03
+- **Exportar a Excel y PDF de la tabla comparativa** (hecho, T-14 y T-15): `controllers/benchmark_controllers/benchmark_exportar_controller.php` (`?formato=xlsx|pdf[&id_competidor=N]`, solo lectura, usa `benchmark_requerir_pagina()`); botones en `benchmark_tabla_comparativa.php`. Excel con PhpSpreadsheet y PDF con **Dompdf** (instalado con composer; `vendor/` va en git). Requiere extensiones `gd` y `zip` (el servidor las tiene). Ojo: «Ahorro Promedio» en la tabla es en realidad una suma (nombre/cálculo sin corregir).
+- **Roles de Benchmark**: 5 superusuario (no se toca), **6 Administrador Benchmark** (Benchmark + Usuarios + Solicitudes) y **7 Usuario Benchmark** (solo Benchmark). `BENCHMARK_ROLES = [5, 6, 7]`; `login2.php` manda a 6 y 7 a Competidores; el menú muestra Benchmark a 5/6/7. Los roles 6 y 7 ya existen en la tabla `roles` del **servidor** (IDs 6 y 7 estaban libres; ahí también hay 9 Supervisor de cuentas, 10 Gerente de cuentas y 11 ADMINISTRADOR IT).
+- **Gestión de usuarios**: el rol 6 solo ve y edita usuarios con rol 6 o 7, no puede cambiar su propio rol y no crea usuarios directo (envía solicitud). Constantes y reglas en `includes/usuarios_roles.php`. El **área** (`usuarios.id_areas`) es obligatoria al crear/editar desde la pantalla.
+- **Solicitudes de creación de usuarios** (mismo diseño que el proyecto de conciliación de un amigo, sin correos): envían los roles 2 y 6; atienden el rol 5 y el rol llamado **`ADMINISTRADOR IT`** (se busca por nombre; en el servidor es el ID 11). Archivos: `controllers/solicitudes_creacion_usuarios.php`, `includes/solicitudes_creacion_usuarios.php` (reglas de quién envía/atiende), `modules/usuarios/solicitudes.php` y `crear_desde_solicitud.php`, JS y CSS asociados. Script de base: `sql/20261028_solicitudes_creacion_usuarios.sql` (idempotente: `areas`, `solicitudes_creacion_usuarios`, `..._centros`, `usuarios.id_areas`, índices). En el **servidor esas tablas y la columna ya existían** (no hizo falta correr nada). En la base local se corrió el script y se asignó área VENTAS (3) a `adminbench` y `usuariobench`; los demás usuarios locales quedan sin área. Probado en el navegador local: `adminbench` envía una solicitud y queda PENDIENTE (falta confirmar que le llega al superusuario/IT).
+- **Servidor**: archivos subidos por WinSCP (solo los cambiados + `vendor/` completa; sin `connection/`) y usuarios `adminbench` y `usuariobench` creados allá; todo verificado por el usuario. **Los usuarios de Benchmark deben entrar por `ip/benchmark/`**: el login del servidor principal (conciliación) responde «Tu rol no tiene una pantalla asignada» para los roles 6 y 7 y es lo esperado.
+- **Seguridad, por revisar**: `controllers/reset_pass.php` (sin login, resetea al admin ID 1 a la clave `admin`), `generar_hash.php`, `login_prueba.php`, `tools/` y `tests/` **no deben subirse nunca al servidor**; no hay `.htaccess` que bloquee carpetas internas; el repositorio versiona volcados `.sql`, `composer.phar` y `recursos_plantilla/` (90 MB).
+- **Repositorio**: el usuario eliminó archivos que no son de Benchmark; último commit `6a5b167` («Eliminar archivos que no pertenecen a Benchmark») en `benchmarkv3`, subido a GitHub. No se creó Pull Request ni se toca `main` por ahora. Plan acordado: una limpieza completa de conciliación en rama aparte, tras generar la lista verificada de archivos que Benchmark necesita (siguiendo `require`/`include`/`<script>`), y probar login, menú, Benchmark y Usuarios antes de borrar.
+- Notas de git en Windows: el árbol está en CRLF y el índice en LF; para ver cambios reales usar `git diff --ignore-cr-at-eol`.
+
 ## Preparar otra computadora
 1. PHP de XAMPP es 8.2 ZTS x64 → copiar `php_pdo_sqlsrv_82_ts_x64.dll` (Microsoft Drivers for PHP for SQL Server 5.11/5.12) a `C:\xampp\php\ext\` y agregar `extension=pdo_sqlsrv_82_ts_x64` en `php.ini`. Requiere ODBC Driver 17 o 18. Reiniciar Apache. Verificar con `C:\xampp\php\php.exe -m` (debe salir `pdo_sqlsrv`).
 2. Crear `connection/database.local.php` (Postgres, con la contraseña) y `connection/database_sqlserver.local.php` (servidor SQL de esa PC) a partir de las plantillas.
@@ -96,7 +106,7 @@ Además, las 4 llevan columnas de auditoría (`creado_por bigint`, `fecha_creaci
 Columnas eliminadas a propósito: `benchmark_precios_detalle.nombre_producto_competencia` (copia redundante del nombre del producto) y `benchmark_productos.gramaje` (traía `Clasificacion3`, una subcategoría, no unidades como Lb/litros).
 
 ## Seguridad (convenciones a mantener)
-- `includes/benchmark_seguridad.php`: `benchmark_requerir_pagina()` (sin sesión → login; rol distinto de 5/6 → 403), `benchmark_tiene_acceso()`, `benchmark_csrf_token()`, `benchmark_csrf_valido()`. Todo archivo nuevo de benchmark debe usarlos.
+- `includes/benchmark_seguridad.php`: `benchmark_requerir_pagina()` (sin sesión → login; rol distinto de 5/6/7 → 403), `benchmark_tiene_acceso()`, `benchmark_csrf_token()`, `benchmark_csrf_valido()`. Todo archivo nuevo de benchmark debe usarlos.
 - Formularios POST llevan `<input type="hidden" name="csrf_token">`; los `fetch` mandan cabecera `X-CSRF-Token` (`BENCHMARK_CSRF` definido en la página) y `Content-Type: application/json`.
 - El precio propio se toma siempre de `benchmark_productos` en el servidor, nunca del navegador.
 - Errores de BD: `error_log(...)` + mensaje genérico al usuario. Datos a `<script>`: `json_encode` con `JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT`. HTML: `escapar()` / `htmlspecialchars`.
@@ -105,7 +115,7 @@ Columnas eliminadas a propósito: `benchmark_precios_detalle.nombre_producto_com
 ## Pendientes / ideas
 - **Servidor, pendiente**: (1) correr `benchmark_esquema_auditoria_completo.sql` en la base general; (2) restaurar los dos `*.local.php` de `connection/`; (3) subir `includes/benchmark_auditoria.php` y los 3 PHP que la usan, más los 5 archivos del login; (4) probar guardando un precio y consultar `benchmark.benchmark_auditoria` (debe salir el `id_usuario`).
 - Campos extra que se pensó proponer a la jefa (sin decidir; unidad/presentación y disponibilidad son los más importantes para que la comparación sea justa): precio en oferta, disponibilidad, unidad/presentación, marca comparada, estado del levantamiento (borrador/enviado/aprobado), foto de evidencia.
-- Construir las exportaciones a Excel y PDF de la tabla comparativa (T-14 y T-15 del cronograma).
+- **Siguiente**: limpieza de conciliación del repositorio en rama aparte (ver «Estado al 2026-11-03»); prueba completa de solicitudes en el servidor (`adminbench` envía, superusuario/ADMINISTRADOR IT recibe, `usuariobench` solo ve Benchmark); corregir el nombre/cálculo de «Ahorro Promedio»; decidir si los usuarios locales sin área se completan.
 - Guardar el script de auditoría en `sql/` y actualizar los scripts viejos de `sql/` (siguen creando las tablas en `public`, sin `benchmark.`).
 - **Siguiente sesión**: subir al servidor `benchmark_levantamientos.js` y `.php`; comprobar que agregar un levantamiento guarda y que Levantamientos carga los productos de Softland; borrar del servidor los archivos temporales de prueba (`info_tmp.php`, `prueba_sql_tmp.php`).
 - **Cambiar la clave de `benchmark_lector`** (apareció en capturas): `ALTER LOGIN benchmark_lector WITH PASSWORD = '...'` y actualizar `database_sqlserver.local.php` del servidor.
