@@ -14,6 +14,7 @@ date_default_timezone_set('America/Tegucigalpa');
 
 require_once __DIR__ . '/../../connection/connection.php';
 require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
+require_once __DIR__ . '/../../includes/benchmark_filtros.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
@@ -57,6 +58,8 @@ $desde   = leer_fecha($_GET['desde'] ?? null) ?? $hasta->modify('-29 days');
 $agrupar = (($_GET['agrupar'] ?? 'semana') === 'dia') ? 'dia' : 'semana';
 $idComp  = leer_entero($_GET['id_competidor'] ?? null);
 $idProd  = leer_entero($_GET['id_producto'] ?? null);
+// Familia, categoría y subcategoría (mismos filtros que la tabla comparativa)
+$filtrosExtra = benchmark_leer_filtros($_GET);
 
 if ($desde > $hasta) {
     responder(['success' => false, 'message' => 'La fecha "desde" no puede ser mayor que "hasta".'], 422);
@@ -76,27 +79,23 @@ $dA = $desdeAnt->format('Y-m-d');
 $hA = $hastaAnt->format('Y-m-d');
 
 // ---------- Piezas de SQL (solo constantes: nada del usuario se concatena) ----------
-const FROM_BASE = '
-    FROM benchmark.benchmark_precios_detalle d
-    INNER JOIN benchmark.benchmark_levantamientos l ON l.id = d.id_levantamiento
-    INNER JOIN benchmark.benchmark_competidores c   ON c.id = l.id_competidor
-    INNER JOIN benchmark.benchmark_productos p      ON p.id = d.id_producto';
+const FROM_BASE = BENCHMARK_FROM_BASE; // solo artículos que pertenecen a una de las 11 familias
 // Precio propio: snapshot del levantamiento, con el precio actual como respaldo (igual que la tabla comparativa)
-const PROPIO = 'COALESCE(NULLIF(d.precio_banasupro_referencia, 0), p.precio_referencia)';
+const PROPIO = BENCHMARK_PRECIO_PROPIO;
 $periodo = ($agrupar === 'dia')
     ? 'l.fecha_levantamiento'
     : "date_trunc('week', l.fecha_levantamiento)::date";
 
-/** WHERE común con parámetros posicionales. */
+/** WHERE común con parámetros posicionales (fechas, competidor, familia, categoría y subcategoría). */
 function armar_filtro(string $desde, string $hasta, ?int $idComp): array
 {
-    $sql = 'l.fecha_levantamiento BETWEEN ? AND ?';
-    $params = [$desde, $hasta];
-    if ($idComp !== null) {
-        $sql .= ' AND l.id_competidor = ?';
-        $params[] = $idComp;
-    }
-    return [$sql, $params];
+    global $filtrosExtra;
+    $f = $filtrosExtra;
+    $f['desde'] = $desde;
+    $f['hasta'] = $hasta;
+    $f['id_competidor'] = $idComp;
+    $f['estatus'] = null;
+    return benchmark_armar_where($f);
 }
 
 function filas(PDO $pdo, string $sql, array $params): array
@@ -151,10 +150,10 @@ try {
     $evolucion = ['banasupro' => [], 'competidores' => []];
     if ($productoSel !== null) {
         $rows = filas($pdo, '
-            SELECT ' . $periodo . ' AS periodo, c.id AS id_comp, c.nombre AS competidor,
+            SELECT ' . $periodo . ' AS periodo, c.id AS id_comp, ' . BENCHMARK_COMPETIDOR_NOMBRE . ' AS competidor,
                    AVG(d.precio_competencia) AS precio_comp, AVG(' . PROPIO . ') AS precio_propio
             ' . FROM_BASE . ' WHERE ' . $where . ' AND p.id = ?
-            GROUP BY ' . $periodo . ', c.id, c.nombre
+            GROUP BY ' . $periodo . ', c.id, c.nombre, c.sucursal
             ORDER BY 1', array_merge($params, [$productoSel]));
 
         $propioPorPeriodo = [];
@@ -171,15 +170,26 @@ try {
         }
     }
 
-    // ---------- Gráfica 2: variación % del precio de la competencia vs periodo anterior ----------
-    [$whereVar, $paramsVar] = armar_filtro($dA, $h, $idComp);
+    // ---------- Gráfica 2: variación % del precio de la competencia dentro del periodo ----------
+    // Por cada competidor y producto se compara su primer levantamiento contra el último del periodo
+    // (necesita al menos dos visitas); luego se promedia por producto entre competidores.
     $rows = filas($pdo, '
-        SELECT p.id, p.nombre_producto AS nombre,
-               AVG(CASE WHEN l.fecha_levantamiento BETWEEN ? AND ? THEN d.precio_competencia END) AS actual,
-               AVG(CASE WHEN l.fecha_levantamiento BETWEEN ? AND ? THEN d.precio_competencia END) AS anterior
-        ' . FROM_BASE . ' WHERE ' . $whereVar . '
-        GROUP BY p.id, p.nombre_producto',
-        array_merge([$d, $h, $dA, $hA], $paramsVar));
+        WITH base AS (
+            SELECT p.id AS id_producto, p.nombre_producto AS nombre, c.id AS id_comp,
+                   l.fecha_levantamiento AS fecha, AVG(d.precio_competencia) AS precio
+            ' . FROM_BASE . ' WHERE ' . $where . '
+            GROUP BY p.id, p.nombre_producto, c.id, l.fecha_levantamiento
+        ), rango AS (
+            SELECT id_producto, nombre, id_comp, MIN(fecha) AS primera, MAX(fecha) AS ultima
+            FROM base GROUP BY id_producto, nombre, id_comp
+            HAVING MIN(fecha) < MAX(fecha)
+        )
+        SELECT r.id_producto AS id, r.nombre,
+               AVG(b1.precio) AS anterior, AVG(b2.precio) AS actual
+        FROM rango r
+        JOIN base b1 ON b1.id_producto = r.id_producto AND b1.id_comp = r.id_comp AND b1.fecha = r.primera
+        JOIN base b2 ON b2.id_producto = r.id_producto AND b2.id_comp = r.id_comp AND b2.fecha = r.ultima
+        GROUP BY r.id_producto, r.nombre', $params);
 
     $variaciones = [];
     $resumenVar = ['suben' => 0, 'bajan' => 0, 'total' => 0];
@@ -228,9 +238,9 @@ try {
         'visitas'    => (int)$r['visitas'],
         'productos'  => (int)$r['productos'],
     ], filas($pdo, '
-        SELECT c.nombre AS competidor, COUNT(DISTINCT l.id) AS visitas, COUNT(DISTINCT d.id_producto) AS productos
+        SELECT ' . BENCHMARK_COMPETIDOR_NOMBRE . ' AS competidor, COUNT(DISTINCT l.id) AS visitas, COUNT(DISTINCT d.id_producto) AS productos
         ' . FROM_BASE . ' WHERE ' . $where . '
-        GROUP BY c.id, c.nombre ORDER BY visitas DESC, c.nombre', $params));
+        GROUP BY c.id, c.nombre, c.sucursal ORDER BY visitas DESC, c.nombre, c.sucursal', $params));
 
     responder([
         'success' => true,

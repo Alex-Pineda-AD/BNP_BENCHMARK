@@ -30,12 +30,13 @@ try {
         SELECT 
             ID AS id, 
             NOMBRE AS nombre, 
+            COALESCE(SUCURSAL, \'\') AS sucursal,
             COALESCE(DESCRIPCION, \'N/A\') AS ubicacion_referencia, 
             ESTADO AS estado,
             CASE WHEN ESTADO = 1 THEN \'Activo\' ELSE \'Inactivo\' END AS ESTADO_TEXTO,
             CASE WHEN ESTADO = 1 THEN \'badge bg-success\' ELSE \'badge bg-danger\' END AS BG
         FROM benchmark.benchmark_competidores
-        ORDER BY ID DESC
+        ORDER BY NOMBRE ASC, SUCURSAL ASC
     ');
     $competidores = $consulta->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -72,7 +73,7 @@ function escapar($valor) {
                         <div class="benchmark-hero-icon"><i class="fas fa-building"></i></div>
                         <div class="flex-grow-1">
                             <h3 class="text-white mb-1">Competidores</h3>
-                            <p class="mb-0 text-white-50">Administrá los competidores activos para el levantamiento de precios.</p>
+                            <p class="mb-0 text-white-50">Registrá cada cadena y, si tiene varias tiendas, cada sucursal por separado (La Colonia – Las Hadas, La Colonia – Centro...).</p>
                         </div>
                     </div>
                 </div>
@@ -100,7 +101,8 @@ function escapar($valor) {
                                 <thead>
                                     <tr>
                                         <th class="text-start ps-4">N.</th>
-                                        <th class="text-start">NOMBRE</th>
+                                        <th class="text-start">COMPETIDOR (CADENA)</th>
+                                        <th class="text-start">SUCURSAL</th>
                                         <th class="text-start">UBICACIÓN / REFERENCIA</th>
                                         <th class="text-center">ESTADO</th>
                                         <th class="text-center">ACCIONES</th>
@@ -112,12 +114,13 @@ function escapar($valor) {
                                 if (empty($competidores)): 
                                 ?>
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted py-4">No hay competidores registrados.</td>
+                                        <td colspan="6" class="text-center text-muted py-4">No hay competidores registrados.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($competidores as $row): 
                                         $vr_correlativo++;
                                         $nombreRow = $row['nombre'] ?? $row['NOMBRE'] ?? '';
+                                        $sucursalRow = (string)($row['sucursal'] ?? $row['SUCURSAL'] ?? '');
                                         $ubicacionRow = $row['ubicacion_referencia'] ?? $row['UBICACION_REFERENCIA'] ?? 'N/A';
                                         $estadoTextoRow = $row['ESTADO_TEXTO'] ?? ($row['estado'] == 1 ? 'Activo' : 'Inactivo');
                                         $bgRow = $row['BG'] ?? ($row['estado'] == 1 ? 'badge bg-success' : 'badge bg-danger');
@@ -125,6 +128,7 @@ function escapar($valor) {
                                         <tr>
                                             <td class="text-start ps-4"><?= htmlspecialchars($vr_correlativo, ENT_QUOTES, 'UTF-8') ?></td>
                                             <td class="text-start"><strong><?= escapar($nombreRow) ?></strong></td>
+                                            <td class="text-start"><?= $sucursalRow !== '' ? escapar($sucursalRow) : '<span class="text-muted">—</span>' ?></td>
                                             <td class="text-start"><?= escapar($ubicacionRow) ?></td>
                                             <td class="text-center"><span class="<?= escapar($bgRow) ?>"><?= escapar($estadoTextoRow) ?></span></td>
                                             <td class="text-center">

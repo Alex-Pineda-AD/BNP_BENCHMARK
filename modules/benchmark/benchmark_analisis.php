@@ -8,6 +8,7 @@ date_default_timezone_set('America/Tegucigalpa');
 
 require_once __DIR__ . '/../../connection/connection.php';
 require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
+require_once __DIR__ . '/../../includes/benchmark_filtros.php';
 
 if (!isset($pdo) && function_exists('database')) {
     $pdo = database();
@@ -17,13 +18,15 @@ if (!isset($pdo) && function_exists('database')) {
 benchmark_requerir_pagina();
 
 $competidores = [];
+$familias = [];
+$categorias = [];
 $errorCatalogos = null;
 
 try {
-    $competidores = array_map(
-        fn($r) => array_change_key_case($r, CASE_LOWER),
-        $pdo->query('SELECT id, nombre, estado FROM benchmark.benchmark_competidores ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC)
-    );
+    $opciones = benchmark_opciones_filtro($pdo);
+    $competidores = $opciones['competidores'];
+    $familias = $opciones['familias'];
+    $categorias = $opciones['categorias'];
 } catch (PDOException $e) {
     error_log('benchmark_analisis: ' . $e->getMessage());
     $errorCatalogos = 'No se pudieron cargar los filtros.';
@@ -139,6 +142,15 @@ function escapar($valor) {
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+                            <div class="col-6 col-md-4 col-xl-2">
+                                <label for="fFamilia" class="form-label small fw-bold mb-1">Familia</label>
+                                <select id="fFamilia" class="form-select">
+                                    <option value="">Todas</option>
+                                    <?php foreach ($familias as $fam): ?>
+                                        <option value="<?= (int)$fam['id'] ?>"><?= escapar($fam['nombre']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                             <div class="col-6 col-md-2 col-xl-1">
                                 <label for="fAgrupar" class="form-label small fw-bold mb-1">Agrupar</label>
                                 <select id="fAgrupar" class="form-select">
@@ -240,13 +252,13 @@ function escapar($valor) {
                         <div class="card kpi-card h-100">
                             <div class="card-header bg-transparent pb-0">
                                 <h5 class="card-title fs-6 fw-bold mb-1"><i class="bi bi-arrow-down-up text-primary"></i> ¿Qué cambió en la competencia?</h5>
-                                <p class="text-muted small mb-0" id="subVariacion">Cambio de precio contra el periodo anterior</p>
+                                <p class="text-muted small mb-0" id="subVariacion">Cambio de precio entre el primer y el último levantamiento del periodo</p>
                                 <p class="small mb-0"><span class="text-success fw-bold">■ Subió</span> &nbsp; <span class="text-danger fw-bold">■ Bajó</span></p>
                             </div>
                             <div class="card-body">
                                 <div class="chart-wrap">
                                     <div id="chartVariacion"></div>
-                                    <div class="chart-vacio" id="vacioVariacion"><i class="fas fa-exchange-alt"></i>Hace falta el mismo producto en ambos periodos para calcular el cambio.</div>
+                                    <div class="chart-vacio" id="vacioVariacion"><i class="fas fa-exchange-alt"></i>Se necesitan al menos dos levantamientos del mismo producto y competidor dentro del periodo para calcular el cambio.</div>
                                 </div>
                                 <p class="small text-muted mb-0 mt-2" id="insightVariacion"></p>
                             </div>

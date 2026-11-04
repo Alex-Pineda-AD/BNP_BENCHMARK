@@ -35,6 +35,9 @@ function editarCompetidor(item) {
     const inputNombre = document.getElementById('nombre');
     if (inputNombre) inputNombre.value = item.nombre ?? item.NOMBRE;
 
+    const inputSucursal = document.getElementById('sucursal');
+    if (inputSucursal) inputSucursal.value = item.sucursal ?? item.SUCURSAL ?? '';
+
     const inputUbicacion = document.getElementById('ubicacion_referencia');
     if (inputUbicacion) {
         const ubicacion = item.ubicacion_referencia ?? item.UBICACION_REFERENCIA;

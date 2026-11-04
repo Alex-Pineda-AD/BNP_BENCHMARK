@@ -14,13 +14,19 @@
 
                 <div class="modal-body">
                     <div class="form-group mb-3">
-                        <label for="nombre" class="form-label">Nombre del Competidor <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ej. Supermercado X" required>
+                        <label for="nombre" class="form-label">Competidor (cadena) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Ej. La Colonia" required>
                     </div>
 
                     <div class="form-group mb-3">
-                        <label for="ubicacion_referencia" class="form-label">Ubicación / Referencia</label>
-                        <input type="text" class="form-control" id="ubicacion_referencia" name="ubicacion_referencia" placeholder="Ej. Sucursal Blvd. Morazán">
+                        <label for="sucursal" class="form-label">Sucursal</label>
+                        <input type="text" class="form-control" id="sucursal" name="sucursal" maxlength="100" placeholder="Ej. Las Hadas">
+                        <small class="text-muted">Déjala vacía si solo hay una tienda. La misma cadena puede registrarse varias veces con sucursales distintas.</small>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="ubicacion_referencia" class="form-label">Dirección / Referencia</label>
+                        <input type="text" class="form-control" id="ubicacion_referencia" name="ubicacion_referencia" placeholder="Ej. Blvd. Morazán, frente a...">
                     </div>
 
                     <div class="form-group mb-3">

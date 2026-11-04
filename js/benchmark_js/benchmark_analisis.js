@@ -34,6 +34,7 @@ function leerFiltros() {
     p.set('hasta', el('fHasta').value);
     p.set('agrupar', el('fAgrupar').value);
     if (el('fCompetidor').value) p.set('id_competidor', el('fCompetidor').value);
+    if (el('fFamilia').value) p.set('id_familia', el('fFamilia').value);
     const producto = el('fProducto').value || (productoInicial ? String(productoInicial) : '');
     if (producto) p.set('id_producto', producto);
     return p;
@@ -57,6 +58,7 @@ function limpiarFiltros() {
     el('fDesde').value = fechaLocal(desde);
     el('fHasta').value = fechaLocal(hoy);
     el('fCompetidor').value = '';
+    el('fFamilia').value = '';
     el('fAgrupar').value = 'semana';
     el('fProducto').value = '';
     cargar();
@@ -126,8 +128,8 @@ function pintarKpis(d) {
     const vari = el('kpiVariacion');
     vari.className = 'fw-bold mb-0 ' + (k.variacion === null ? '' : colorPorSigno(k.variacion));
     vari.textContent = k.variacion === null ? '–' : porcentaje(k.variacion, 2);
-    el('kpiVariacionSub').textContent = k.variacion === null ? 'Sin datos en ambos periodos'
-        : 'vs. ' + fechaCorta(d.filtros.desde_anterior) + ' – ' + fechaCorta(d.filtros.hasta_anterior);
+    el('kpiVariacionSub').textContent = k.variacion === null ? 'Faltan 2 levantamientos del mismo producto'
+        : 'Primer vs. último levantamiento';
 }
 
 function llenarProductos(productos, seleccionado) {
@@ -186,9 +188,9 @@ function graficarEvolucion(ev) {
     }, ev.banasupro.length > 0);
 }
 
-// ---------- 2. ¿Qué cambió en la competencia? (variación vs periodo anterior) ----------
+// ---------- 2. ¿Qué cambió en la competencia? (primer vs. último levantamiento del periodo) ----------
 function graficarVariacion(lista, filtros, resumen) {
-    el('subVariacion').textContent = 'Contra el periodo anterior (' + fechaCorta(filtros.desde_anterior) + ' – ' + fechaCorta(filtros.hasta_anterior) + ')';
+    el('subVariacion').textContent = 'Primer vs. último levantamiento de cada competidor (' + fechaCorta(filtros.desde) + ' – ' + fechaCorta(filtros.hasta) + ')';
 
     // La lista llega de mayor subida a mayor bajada: mostramos las 5 mayores subidas y las 5 mayores bajadas
     const mostrar = lista.filter((x) => x.pct > 0).slice(0, 5).concat(lista.filter((x) => x.pct < 0).slice(-5));
@@ -284,7 +286,7 @@ function graficarCobertura(lista) {
 
 // ---------- Eventos ----------
 document.addEventListener('DOMContentLoaded', () => {
-    ['fDesde', 'fHasta', 'fCompetidor', 'fAgrupar'].forEach((id) => {
+    ['fDesde', 'fHasta', 'fCompetidor', 'fFamilia', 'fAgrupar'].forEach((id) => {
         el(id).addEventListener('change', () => {
             el('fProducto').value = ''; // el producto sugerido cambia con los filtros
             cargar();

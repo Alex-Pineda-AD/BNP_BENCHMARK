@@ -46,7 +46,8 @@ async function guardarFilaIndividual(button, idProducto, precioBanasupro) {
 
     const inputPrecio = row.querySelector('.input-precio-comp');
     const precioCompetencia = parseFloat(inputPrecio.value);
-    const observacionesItem = row.querySelector('.input-obs-comp').value;
+    const inputObs = row.querySelector('.input-obs-comp');
+    const observacionesItem = inputObs ? inputObs.value : '';
 
     if (!idCompetidor) {
         await avisar('warning', 'Falta el competidor', 'Seleccione primero un competidor en la parte superior.');
@@ -164,6 +165,8 @@ function enviarGuardado(button, row, payload, nombreProducto, nombreCompetidor) 
 
             if (data.success) {
                 row.style.backgroundColor = '#d1e7dd'; // verde suave de éxito
+                row.dataset.guardado = '1';
+                actualizarContadores();
                 button.classList.remove('btn-outline-success');
                 button.classList.add('btn-success');
                 button.innerHTML = '<i class="fas fa-check"></i>';
@@ -189,3 +192,78 @@ function enviarGuardado(button, row, payload, nombreProducto, nombreCompetidor) 
             restaurarBoton(button);
         });
 }
+
+// Contadores "capturados X/Y" por categoría y total de la visita
+function actualizarContadores() {
+    let hechos = 0;
+    let total = 0;
+    document.querySelectorAll('.panel-categoria[data-categoria]').forEach(panel => {
+        const filas = panel.querySelectorAll('.fila-producto');
+        const guardadas = panel.querySelectorAll('.fila-producto[data-guardado="1"]').length;
+        hechos += guardadas;
+        total += filas.length;
+        const contador = document.querySelector('.contador-categoria[data-categoria="' + panel.dataset.categoria + '"]');
+        if (contador) {
+            contador.textContent = guardadas + '/' + filas.length;
+            const completa = filas.length > 0 && guardadas === filas.length;
+            contador.classList.toggle('bg-success', completa);
+            contador.classList.toggle('text-white', completa);
+            contador.classList.toggle('bg-light', !completa);
+            contador.classList.toggle('text-dark', !completa);
+        }
+    });
+    document.querySelectorAll('.acordeon-sub').forEach(sub => {
+        const filas = sub.querySelectorAll('.fila-producto');
+        const guardadas = sub.querySelectorAll('.fila-producto[data-guardado="1"]').length;
+        const c = sub.querySelector('.contador-sub');
+        if (c) {
+            c.textContent = guardadas + '/' + filas.length;
+            const completa = filas.length > 0 && guardadas === filas.length;
+            c.classList.toggle('bg-success', completa);
+            c.classList.toggle('text-white', completa);
+            c.classList.toggle('bg-light', !completa);
+            c.classList.toggle('text-dark', !completa);
+        }
+    });
+    const badge = document.getElementById('badgeTotalCapturados');
+    if (badge) { badge.textContent = hechos + ' de ' + total; }
+}
+
+document.addEventListener('DOMContentLoaded', actualizarContadores);
+
+// ---------- Precios al día (en segundo plano) ----------
+// Si los precios guardados tienen más de una hora, se pide la actualización a Softland sin detener la pantalla.
+function actualizarPreciosEnSegundoPlano() {
+    if (typeof BENCHMARK_SYNC_VENCIDA === 'undefined' || !BENCHMARK_SYNC_VENCIDA) {
+        return;
+    }
+    fetch('../../controllers/benchmark_controllers/benchmark_sincronizar_ajax_controller.php', {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': BENCHMARK_CSRF }
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success || !data.actualizado) {
+                return;
+            }
+            const etiqueta = document.getElementById('bmUltimaSync');
+            if (etiqueta) {
+                etiqueta.textContent = 'Última: ' + data.hora;
+            }
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    toast: true,
+                    position: 'bottom-end',
+                    icon: 'info',
+                    title: 'Precios actualizados desde Softland',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Ver cambios',
+                    showCloseButton: true,
+                    timer: 20000,
+                    timerProgressBar: true
+                }).then(res => { if (res.isConfirmed) { window.location.reload(); } });
+            }
+        })
+        .catch(err => console.warn('No se pudo actualizar en segundo plano:', err));
+}
+document.addEventListener('DOMContentLoaded', actualizarPreciosEnSegundoPlano);

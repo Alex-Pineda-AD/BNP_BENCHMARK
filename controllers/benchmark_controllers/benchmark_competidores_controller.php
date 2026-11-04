@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $id = trim($_POST['id'] ?? '');
     $nombre = trim($_POST['nombre'] ?? '');
+    $sucursal = trim($_POST['sucursal'] ?? '');
     $ubicacion = trim($_POST['ubicacion_referencia'] ?? '');
     $estado = filter_var($_POST['estado'] ?? 1, FILTER_VALIDATE_INT);
 
@@ -31,6 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'El nombre del competidor es obligatorio.';
     } elseif (mb_strlen($nombre) > 100) {
         $error = 'El nombre no puede pasar de 100 caracteres.';
+    } elseif (mb_strlen($sucursal) > 100) {
+        $error = 'La sucursal no puede pasar de 100 caracteres.';
     } elseif (mb_strlen($ubicacion) > 500) {
         $error = 'La ubicación no puede pasar de 500 caracteres.';
     } elseif (!in_array($estado, [0, 1], true)) {
@@ -54,13 +57,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($id)) {
             // INSERTAR NUEVO
-            $stmt = $pdo->prepare('INSERT INTO benchmark.benchmark_competidores (nombre, descripcion, estado) VALUES (?, ?, ?)');
-            $stmt->execute([$nombre, $ubicacion, $estado]);
+            $stmt = $pdo->prepare('INSERT INTO benchmark.benchmark_competidores (nombre, sucursal, descripcion, estado) VALUES (?, ?, ?, ?)');
+            $stmt->execute([$nombre, $sucursal !== '' ? $sucursal : null, $ubicacion, $estado]);
             $mensaje = '¡Competidor registrado correctamente!';
         } else {
             // ACTUALIZAR / EDITAR
-            $stmt = $pdo->prepare('UPDATE benchmark.benchmark_competidores SET nombre = ?, descripcion = ?, estado = ? WHERE id = ?');
-            $stmt->execute([$nombre, $ubicacion, $estado, (int)$id]);
+            $stmt = $pdo->prepare('UPDATE benchmark.benchmark_competidores SET nombre = ?, sucursal = ?, descripcion = ?, estado = ? WHERE id = ?');
+            $stmt->execute([$nombre, $sucursal !== '' ? $sucursal : null, $ubicacion, $estado, (int)$id]);
             $mensaje = '¡Competidor actualizado correctamente!';
         }
 
@@ -70,9 +73,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
     } catch (PDOException $e) {
         error_log('[benchmark_competidores] ' . $e->getMessage());
+        // 23505 = ya existe esa cadena con esa misma sucursal
+        $duplicado = $e->getCode() === '23505';
         $_SESSION['competidor_resultado'] = [
             'tipo' => 'danger',
-            'mensaje' => 'No se pudo guardar el competidor. Intentá de nuevo.'
+            'mensaje' => $duplicado
+                ? 'Ese competidor ya está registrado con esa misma sucursal.'
+                : 'No se pudo guardar el competidor. Intentá de nuevo.'
         ];
     }
 
