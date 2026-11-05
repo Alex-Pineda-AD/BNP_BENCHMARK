@@ -10,23 +10,17 @@
 session_start();
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 0);
-ini_set('memory_limit', '256M');
-set_time_limit(120);
+// Capacidad: el Excel y el PDF se arman en memoria. Se sube el límite y se corta con un mensaje claro
+// si el filtro devuelve demasiados registros (en vez de caerse con un error 500).
+ini_set('memory_limit', '512M'); // el Excel va por flujo (memoria casi constante); solo el PDF necesita margen
+set_time_limit(300);
 
 require_once __DIR__ . '/../../connection/connection.php';
 require_once __DIR__ . '/../../includes/benchmark_seguridad.php';
 require_once __DIR__ . '/../../includes/benchmark_filtros.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../../includes/benchmark_exportar_excel.php';
 
-use PhpOffice\PhpSpreadsheet\Cell\DataType;
-use PhpOffice\PhpSpreadsheet\Shared\Date as XlsDate;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
-use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 benchmark_requerir_pagina();
 date_default_timezone_set('America/Tegucigalpa');
@@ -39,6 +33,10 @@ const BX_ROJO   = 'C0392B';
 const BX_GRIS   = '5F6B7A';
 const BX_FONDO  = 'F4F6FB';
 const BX_LINEA  = 'D9DEEA';
+// Máximo de filas de detalle: Excel completo hasta este número; el PDF lleva el detalle solo si cabe cómodo
+// (Dompdf gasta mucha memoria por fila); por encima de BX_MAX_FILAS_PDF el PDF trae solo el resumen.
+const BX_MAX_FILAS_EXCEL = 500000; // el Excel se escribe por flujo (casi no usa memoria); el límite de una hoja de Excel es 1,048,576
+const BX_MAX_FILAS_PDF   = 500;
 const BX_LOGO   = __DIR__ . '/../../assets/images/logo/logo_banasupro_horizontal.png';
 
 const BX_ESTATUS = [
@@ -60,6 +58,7 @@ function bx_signo(float $n, int $dec = 2, string $suf = ''): string
 function bx_fin(int $codigo, string $mensaje): void
 {
     http_response_code($codigo);
+    header('Content-Type: text/plain; charset=utf-8');
     exit($mensaje);
 }
 
@@ -78,7 +77,17 @@ if (!isset($pdo) && function_exists('database')) {
 
 // ── Datos (misma consulta y filtros que la tabla comparativa) ─────────────────
 try {
-    $stmt = $pdo->prepare("
+    // Conteo barato antes de cargar nada
+    $cnt = $pdo->prepare('SELECT COUNT(*) ' . BENCHMARK_FROM_BASE . ' WHERE ' . $where);
+    $cnt->execute($params);
+    $totalFilas = (int)$cnt->fetchColumn();
+    if ($formato === 'xlsx' && $totalFilas > BX_MAX_FILAS_EXCEL) {
+        bx_fin(413, 'Hay ' . number_format($totalFilas) . ' registros con estos filtros y el Excel admite hasta ' . number_format(BX_MAX_FILAS_EXCEL)
+            . '. Filtra por competidor, familia o fechas y vuelve a exportar.');
+    }
+    $detalleOmitido = $formato === 'pdf' && $totalFilas > BX_MAX_FILAS_PDF;
+
+    $sqlDetalle = "
         SELECT " . BENCHMARK_COMPETIDOR_NOMBRE . " AS competidor, l.fecha_levantamiento,
                f.nombre AS familia, p.clasificacion2 AS categoria, p.categoria AS subcategoria,
                p.nombre_producto AS producto,
@@ -87,9 +96,14 @@ try {
         " . BENCHMARK_FROM_BASE . "
         WHERE $where
         ORDER BY f.orden, c.nombre, c.sucursal, p.nombre_producto, l.fecha_levantamiento DESC, d.id DESC
-    ");
-    $stmt->execute($params);
-    $filas = array_map(fn($r) => array_change_key_case($r, CASE_LOWER), $stmt->fetchAll(PDO::FETCH_ASSOC));
+    ";
+    // El PDF carga el detalle (si cabe); el Excel lo lee por lotes mientras escribe (ver $leerLote más abajo)
+    $filas = [];
+    if ($formato === 'pdf' && !$detalleOmitido) {
+        $stmt = $pdo->prepare($sqlDetalle);
+        $stmt->execute($params);
+        $filas = array_map(fn($r) => array_change_key_case($r, CASE_LOWER), $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
 
     // Resumen familia x competidor (mismos números que la pantalla)
     $resumen = benchmark_resumen_familia_competidor($pdo, $where, $params);
@@ -119,14 +133,17 @@ try {
     bx_fin(500, 'No se pudo consultar la información para exportar.');
 }
 
-foreach ($filas as &$f) {
+/** Agrega diferencia, porcentaje y estatus a una fila de detalle. */
+function bx_enriquecer(array $f): array
+{
     $propio = (float)$f['precio_propio'];
     $comp   = (float)$f['precio_competencia'];
     $f['dif'] = $comp - $propio;
     $f['pct'] = $propio > 0 ? ($f['dif'] / $propio) * 100 : 0;
     $f['est'] = $f['dif'] > 0 ? 'barato' : ($f['dif'] < 0 ? 'caro' : 'igual');
+    return $f;
 }
-unset($f);
+$filas = array_map('bx_enriquecer', $filas);
 $kpi = benchmark_kpis_desde_resumen($resumen);
 
 $slug = iconv('UTF-8', 'ASCII//TRANSLIT', $nombreCompetidor);
@@ -136,322 +153,17 @@ $ctx = [
     'filtros'    => $textoFiltros,
     'usuario'    => (string)($_SESSION['user_nombre'] ?? 'Usuario'),
     'generado'   => date('d/m/Y H:i'),
+    'total'      => $totalFilas,
+    'detalle_omitido' => $detalleOmitido,
     'archivo'    => 'Benchmark_Precios_' . ($slug !== '' ? $slug : 'Todos') . '_' . date('Ymd_Hi'),
 ];
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  EXCEL  (una hoja: resumen arriba y detalle de todos los artículos abajo, igual que el PDF)
-// ═════════════════════════════════════════════════════════════════════════════
-
-/** Franja de marca: logo, título, filtros y bandas azul/dorada (filas 1 a 6). */
-function bx_excel_cabecera(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $ws, array $ctx, string $ultimaCol, string $colTitulo, string $titulo): void
-{
-    $ws->setShowGridlines(false);
-    foreach ([1 => 26, 2 => 20, 3 => 18, 4 => 6, 5 => 3, 6 => 10] as $r => $h) {
-        $ws->getRowDimension($r)->setRowHeight($h);
-    }
-    if (is_file(BX_LOGO)) {
-        $logo = new Drawing();
-        $logo->setName('Banasupro')->setPath(BX_LOGO)->setHeight(54)->setCoordinates('A1')->setOffsetX(6)->setOffsetY(4);
-        $logo->setWorksheet($ws);
-    }
-    $ws->setCellValue("{$colTitulo}1", $titulo);
-    $ws->getStyle("{$colTitulo}1")->getFont()->setBold(true)->setSize(20)->getColor()->setRGB(BX_AZUL);
-    $ws->setCellValueExplicit("{$colTitulo}2", 'Precios por unidad · ' . $ctx['filtros'], DataType::TYPE_STRING);
-    $ws->getStyle("{$colTitulo}2")->getFont()->setSize(11)->getColor()->setRGB(BX_GRIS);
-    $ws->setCellValueExplicit("{$colTitulo}3", 'Generado el ' . $ctx['generado'] . ' por ' . $ctx['usuario'], DataType::TYPE_STRING);
-    $ws->getStyle("{$colTitulo}3")->getFont()->setSize(9)->setItalic(true)->getColor()->setRGB(BX_GRIS);
-    $ws->getStyle("{$colTitulo}1:{$colTitulo}3")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-    $ws->getStyle("A4:{$ultimaCol}4")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(BX_AZUL);
-    $ws->getStyle("A5:{$ultimaCol}5")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(BX_DORADO);
-}
-
-/** Encabezado azul de una tabla en la fila $fila. */
-function bx_excel_encabezado_tabla(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $ws, array $titulos, int $fila, string $ultimaCol): void
-{
-    foreach ($titulos as $i => $t) {
-        $ws->setCellValueExplicit([$i + 1, $fila], $t, DataType::TYPE_STRING);
-    }
-    $ws->getRowDimension($fila)->setRowHeight(28);
-    $st = $ws->getStyle("A{$fila}:{$ultimaCol}{$fila}");
-    $st->getFont()->setBold(true)->setSize(10)->getColor()->setRGB('FFFFFF');
-    $st->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(BX_AZUL);
-    $st->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
-    $st->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM)->getColor()->setRGB(BX_DORADO);
-}
-
-function bx_excel_impresion(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $ws, int $filaEncabezado, string $areaHasta, string $ultimaCol): void
-{
-    $ws->freezePane('A' . ($filaEncabezado + 1));
-    $ps = $ws->getPageSetup();
-    $ps->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)->setPaperSize(PageSetup::PAPERSIZE_LETTER);
-    $ps->setFitToPage(true)->setFitToWidth(1)->setFitToHeight(0);
-    $ps->setRowsToRepeatAtTopByStartAndEnd($filaEncabezado, $filaEncabezado);
-    $ps->setPrintArea("A1:{$ultimaCol}{$areaHasta}");
-    $ps->setHorizontalCentered(true);
-    $ws->getPageMargins()->setTop(0.5)->setBottom(0.6)->setLeft(0.4)->setRight(0.4);
-    $ws->getHeaderFooter()->setOddFooter('&L&8Banasupro · Benchmark de Precios&R&8Página &P de &N');
-    $ws->setSelectedCell('A1');
-}
-
-function bx_excel(array $filas, array $resumen, array $kpi, array $ctx): void
-{
-    $ss = new Spreadsheet();
-    $ss->getProperties()->setCreator('Banasupro')->setTitle('Benchmark de Precios')
-        ->setSubject('Comparativa de precios contra la competencia');
-
-    // Una sola hoja, igual que el PDF: resumen arriba y detalle de todos los artículos abajo.
-    $ws = $ss->getActiveSheet();
-    $ws->setTitle('Benchmark');
-    foreach (['A' => 6, 'B' => 22, 'C' => 12, 'D' => 16, 'E' => 40, 'F' => 15, 'G' => 15, 'H' => 12, 'I' => 10, 'J' => 16, 'K' => 18, 'L' => 22, 'M' => 34] as $col => $w) {
-        $ws->getColumnDimension($col)->setWidth($w);
-    }
-    $ult = 'M';
-    bx_excel_cabecera($ws, $ctx, $ult, 'D', 'BENCHMARK DE PRECIOS');
-
-    // ── Indicadores (filas 7 y 8) ──
-    $ws->getRowDimension(7)->setRowHeight(18);
-    $ws->getRowDimension(8)->setRowHeight(30);
-    $ws->getRowDimension(9)->setRowHeight(10);
-    $bloques = [
-        ['A', 'D', 'PRODUCTOS COMPARADOS', number_format($kpi['total']), BX_AZUL],
-        ['E', 'G', 'BANASUPRO MÁS BARATO', number_format($kpi['barato']) . '  (' . $kpi['pct_barato'] . '%)', BX_VERDE],
-        ['H', 'K', 'BANASUPRO MÁS CARO', number_format($kpi['caro']) . '  (' . $kpi['pct_caro'] . '%)', BX_ROJO],
-        ['L', 'M', 'BRECHA PROMEDIO', $kpi['brecha'] === null ? '—' : bx_signo($kpi['brecha'], 2, '%'), BX_AZUL],
-    ];
-    foreach ($bloques as [$c1, $c2, $etiqueta, $valor, $color]) {
-        $ws->mergeCells("{$c1}7:{$c2}7");
-        $ws->mergeCells("{$c1}8:{$c2}8");
-        $ws->setCellValueExplicit("{$c1}7", $etiqueta, DataType::TYPE_STRING);
-        $ws->setCellValueExplicit("{$c1}8", $valor, DataType::TYPE_STRING);
-        $st = $ws->getStyle("{$c1}7:{$c2}8");
-        $st->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(BX_FONDO);
-        $st->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
-        $st->getBorders()->getRight()->setBorderStyle(Border::BORDER_THICK)->getColor()->setRGB('FFFFFF');
-        $ws->getStyle("{$c1}7:{$c2}7")->getBorders()->getTop()->setBorderStyle(Border::BORDER_THICK)->getColor()->setRGB($color);
-        $ws->getStyle("{$c1}7")->getFont()->setSize(9)->setBold(true)->getColor()->setRGB(BX_GRIS);
-        $ws->getStyle("{$c1}8")->getFont()->setSize(16)->setBold(true)->getColor()->setRGB($color);
-    }
-
-    // Título de sección
-    $seccion = function (int $fila, string $texto) use ($ws, $ult): void {
-        $ws->mergeCells("A{$fila}:{$ult}{$fila}");
-        $ws->setCellValueExplicit("A{$fila}", $texto, DataType::TYPE_STRING);
-        $ws->getRowDimension($fila)->setRowHeight(24);
-        $st = $ws->getStyle("A{$fila}:{$ult}{$fila}");
-        $st->getFont()->setBold(true)->setSize(12)->getColor()->setRGB(BX_AZUL);
-        $st->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('E8EEFB');
-        $st->getAlignment()->setVertical(Alignment::VERTICAL_CENTER)->setIndent(1);
-        $st->getBorders()->getLeft()->setBorderStyle(Border::BORDER_THICK)->getColor()->setRGB(BX_DORADO);
-    };
-
-    // ═══════════ RESUMEN: familia x competidor ═══════════
-    $seccion(10, 'RESUMEN POR FAMILIA Y COMPETIDOR');
-    $hdr = 11;
-    $cols = [
-        ['A', 'B', 'FAMILIA'], ['C', 'D', 'COMPETIDOR'], ['E', 'E', 'RESULTADO'], ['F', 'F', 'PRODUCTOS'],
-        ['G', 'G', 'MÁS BARATO'], ['H', 'H', 'MÁS CARO'], ['I', 'I', 'IGUAL'],
-        ['J', 'J', '% MÁS BARATO'], ['K', 'K', '% MÁS CARO'], ['L', 'L', 'BRECHA PROM.'],
-    ];
-    foreach ($cols as [$c1, $c2, $t]) {
-        if ($c1 !== $c2) {
-            $ws->mergeCells("{$c1}{$hdr}:{$c2}{$hdr}");
-        }
-        $ws->setCellValueExplicit("{$c1}{$hdr}", $t, DataType::TYPE_STRING);
-    }
-    $ws->getRowDimension($hdr)->setRowHeight(28);
-    $st = $ws->getStyle("A{$hdr}:L{$hdr}");
-    $st->getFont()->setBold(true)->setSize(10)->getColor()->setRGB('FFFFFF');
-    $st->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(BX_AZUL);
-    $st->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
-    $st->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM)->getColor()->setRGB(BX_DORADO);
-
-    $r = $hdr;
-    if (!$resumen) {
-        $r++;
-        $ws->mergeCells("A{$r}:L{$r}");
-        $ws->setCellValue("A{$r}", 'No hay datos para exportar con los filtros seleccionados.');
-        $ws->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $ws->getStyle("A{$r}")->getFont()->setItalic(true)->getColor()->setRGB(BX_GRIS);
-        $ws->getRowDimension($r)->setRowHeight(30);
-    }
-    $primeraResumen = $hdr + 1;
-    $famPrev = null;
-    foreach ($resumen as $g) {
-        $r++;
-        $prod = max(1, (int)$g['productos']);
-        $brecha = $g['brecha'] === null ? null : (float)$g['brecha'];
-        $nueva = $famPrev !== $g['id_familia'];
-        $famPrev = $g['id_familia'];
-        $ws->mergeCells("A{$r}:B{$r}");
-        $ws->mergeCells("C{$r}:D{$r}");
-        $ws->setCellValueExplicit("A{$r}", (string)$g['familia'], DataType::TYPE_STRING);
-        $ws->setCellValueExplicit("C{$r}", (string)$g['competidor'], DataType::TYPE_STRING);
-        $ws->setCellValueExplicit("E{$r}",
-            (int)$g['barato'] . ' más barato · ' . (int)$g['caro'] . ' más caro' . ((int)$g['igual'] > 0 ? ' · ' . (int)$g['igual'] . ' igual' : ''),
-            DataType::TYPE_STRING);
-        $ws->setCellValue("F{$r}", (int)$g['productos']);
-        $ws->setCellValue("G{$r}", (int)$g['barato']);
-        $ws->setCellValue("H{$r}", (int)$g['caro']);
-        $ws->setCellValue("I{$r}", (int)$g['igual']);
-        $ws->setCellValue("J{$r}", (int)$g['barato'] / $prod);
-        $ws->setCellValue("K{$r}", (int)$g['caro'] / $prod);
-        if ($brecha !== null) {
-            $ws->setCellValue("L{$r}", round($brecha, 2));
-        }
-        $ws->getRowDimension($r)->setRowHeight(21);
-        $fila = $ws->getStyle("A{$r}:L{$r}");
-        $fila->getFont()->setSize(10);
-        $fila->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-        $fila->getBorders()->getBottom()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB(BX_LINEA);
-        if ($nueva) {
-            $fila->getBorders()->getTop()->setBorderStyle(Border::BORDER_MEDIUM)->getColor()->setRGB(BX_AZUL);
-        }
-        $ws->getStyle("A{$r}")->getFont()->setBold($nueva)->getColor()->setRGB($nueva ? BX_AZUL : 'A0A8B5');
-        $ws->getStyle("A{$r}")->getAlignment()->setIndent(1);
-        $ws->getStyle("C{$r}")->getFont()->setBold(true);
-        $ws->getStyle("E{$r}")->getFont()->getColor()->setRGB(BX_GRIS);
-        $ws->getStyle("F{$r}:K{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $ws->getStyle("L{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $ws->getStyle("G{$r}")->getFont()->setBold(true)->getColor()->setRGB(BX_VERDE);
-        $ws->getStyle("J{$r}")->getFont()->getColor()->setRGB(BX_VERDE);
-        $ws->getStyle("H{$r}")->getFont()->setBold(true)->getColor()->setRGB(BX_ROJO);
-        $ws->getStyle("K{$r}")->getFont()->getColor()->setRGB(BX_ROJO);
-        $ws->getStyle("L{$r}")->getFont()->setBold(true)->getColor()->setRGB(($brecha ?? 0) >= 0 ? BX_VERDE : BX_ROJO);
-        if ((int)$g['barato'] > (int)$g['caro']) {
-            $ws->getStyle("G{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('E3F4E6');
-        } elseif ((int)$g['caro'] > (int)$g['barato']) {
-            $ws->getStyle("H{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FBE4E1');
-        }
-    }
-    $ultimaResumen = max($r, $hdr + 1);
-    if ($resumen) {
-        $d = $primeraResumen;
-        $ws->getStyle("J{$d}:K{$ultimaResumen}")->getNumberFormat()->setFormatCode('0%');
-        $ws->getStyle("L{$d}:L{$ultimaResumen}")->getNumberFormat()->setFormatCode('+0.00"%";-0.00"%";0.00"%"');
-        // Fila de totales
-        $t = $ultimaResumen + 1;
-        $ws->mergeCells("A{$t}:E{$t}");
-        $ws->setCellValue("A{$t}", 'TOTAL');
-        $ws->setCellValue("F{$t}", "=SUM(F{$d}:F{$ultimaResumen})");
-        $ws->setCellValue("G{$t}", "=SUM(G{$d}:G{$ultimaResumen})");
-        $ws->setCellValue("H{$t}", "=SUM(H{$d}:H{$ultimaResumen})");
-        $ws->setCellValue("I{$t}", "=SUM(I{$d}:I{$ultimaResumen})");
-        $ws->setCellValue("J{$t}", "=IF(F{$t}=0,0,G{$t}/F{$t})");
-        $ws->setCellValue("K{$t}", "=IF(F{$t}=0,0,H{$t}/F{$t})");
-        if ($kpi['brecha'] !== null) {
-            $ws->setCellValue("L{$t}", round($kpi['brecha'], 2));
-        }
-        $ws->getRowDimension($t)->setRowHeight(24);
-        $st = $ws->getStyle("A{$t}:L{$t}");
-        $st->getFont()->setBold(true)->setSize(10)->getColor()->setRGB('FFFFFF');
-        $st->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(BX_AZUL);
-        $st->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-        $ws->getStyle("A{$t}")->getAlignment()->setIndent(1);
-        $ws->getStyle("F{$t}:L{$t}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $ws->getStyle("J{$t}:K{$t}")->getNumberFormat()->setFormatCode('0%');
-        $ws->getStyle("L{$t}")->getNumberFormat()->setFormatCode('+0.00"%";-0.00"%";0.00"%"');
-        $ultimaResumen = $t;
-    }
-    $nota = $ultimaResumen + 1;
-    $ws->mergeCells("A{$nota}:{$ult}{$nota}");
-    $ws->setCellValue("A{$nota}", 'En el resumen cada producto cuenta una vez por competidor, con su último precio levantado en el periodo. Más barato = el precio de Banasupro es menor. Brecha positiva = la competencia es más cara.');
-    $ws->getStyle("A{$nota}")->getFont()->setSize(8)->setItalic(true)->getColor()->setRGB(BX_GRIS);
-
-    // ═══════════ DETALLE: todos los artículos ═══════════
-    $sec2 = $nota + 2;
-    $seccion($sec2, 'DETALLE DE LEVANTAMIENTOS');
-    $hdrD = $sec2 + 1;
-    bx_excel_encabezado_tabla($ws, ['N.', 'COMPETIDOR', 'FECHA', 'FAMILIA', 'PRODUCTO Y PRESENTACIÓN', 'PRECIO BANASUPRO (C/U)', 'PRECIO COMPETENCIA (C/U)', 'DIF. (L.)', 'DIF. %', 'ESTATUS', 'CATEGORÍA', 'SUBCATEGORÍA', 'NOTAS'], $hdrD, $ult);
-    $r = $hdrD;
-    if (!$filas) {
-        $r++;
-        $ws->mergeCells("A{$r}:{$ult}{$r}");
-        $ws->setCellValue("A{$r}", 'No hay datos para exportar con los filtros seleccionados.');
-        $ws->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $ws->getStyle("A{$r}")->getFont()->setItalic(true)->getColor()->setRGB(BX_GRIS);
-        $ws->getRowDimension($r)->setRowHeight(30);
-    }
-    $n = 0;
-    foreach ($filas as $f) {
-        $r++;
-        $n++;
-        $e = BX_ESTATUS[$f['est']];
-        $ws->setCellValue("A{$r}", $n);
-        $ws->setCellValueExplicit("B{$r}", (string)$f['competidor'], DataType::TYPE_STRING);
-        $ts = strtotime((string)$f['fecha_levantamiento']);
-        if ($ts) {
-            $ws->setCellValue("C{$r}", XlsDate::PHPToExcel($ts));
-        }
-        $ws->setCellValueExplicit("D{$r}", (string)$f['familia'], DataType::TYPE_STRING);
-        $ws->setCellValueExplicit("E{$r}", benchmark_etiqueta($f['producto']), DataType::TYPE_STRING);
-        $ws->setCellValue("F{$r}", (float)$f['precio_propio']);
-        $ws->setCellValue("G{$r}", (float)$f['precio_competencia']);
-        $ws->setCellValue("H{$r}", round($f['dif'], 2));
-        $ws->setCellValue("I{$r}", round($f['pct'], 2));
-        $ws->setCellValueExplicit("J{$r}", $e['txt'], DataType::TYPE_STRING);
-        $ws->setCellValueExplicit("K{$r}", benchmark_etiqueta($f['categoria']), DataType::TYPE_STRING);
-        $ws->setCellValueExplicit("L{$r}", benchmark_etiqueta($f['subcategoria']), DataType::TYPE_STRING);
-        $obs = trim((string)($f['observaciones'] ?? ''));
-        $ws->setCellValueExplicit("M{$r}", ($obs === '' ? '-' : $obs), DataType::TYPE_STRING);
-
-        $ws->getRowDimension($r)->setRowHeight(20);
-        $fila = $ws->getStyle("A{$r}:{$ult}{$r}");
-        $fila->getFont()->setSize(10);
-        $fila->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-        $fila->getBorders()->getBottom()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB(BX_LINEA);
-        if ($n % 2 === 0) {
-            $fila->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB(BX_FONDO);
-        }
-        foreach (['A', 'C', 'J'] as $c) {
-            $ws->getStyle("{$c}{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        }
-        $ws->getStyle("B{$r}")->getFont()->setBold(true);
-        $ws->getStyle("D{$r}")->getFont()->setBold(true)->getColor()->setRGB(BX_AZUL);
-        $ws->getStyle("F{$r}:I{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $ws->getStyle("E{$r}")->getAlignment()->setWrapText(true);
-        $ws->getStyle("M{$r}")->getAlignment()->setWrapText(true)->setIndent(1);
-        $ws->getStyle("K{$r}:L{$r}")->getFont()->getColor()->setRGB(BX_GRIS);
-        $ws->getStyle("F{$r}")->getFont()->setBold(true)->getColor()->setRGB(BX_AZUL);
-        $ws->getStyle("G{$r}")->getFont()->setBold(true);
-        $ws->getStyle("H{$r}:J{$r}")->getFont()->setBold(true)->getColor()->setRGB($e['color']);
-        $ws->getStyle("J{$r}")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($e['fondo']);
-    }
-    $ultimaD = max($r, $hdrD + 1);
-    if ($filas) {
-        $d = $hdrD + 1;
-        $ws->getStyle("C{$d}:C{$ultimaD}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $ws->getStyle("F{$d}:G{$ultimaD}")->getNumberFormat()->setFormatCode('"L. "#,##0.00');
-        $ws->getStyle("H{$d}:H{$ultimaD}")->getNumberFormat()->setFormatCode('+#,##0.00;-#,##0.00;0.00');
-        $ws->getStyle("I{$d}:I{$ultimaD}")->getNumberFormat()->setFormatCode('+0.00"%";-0.00"%";0.00"%"');
-        $ws->setAutoFilter("A{$hdrD}:{$ult}{$ultimaD}");
-    }
-    $pie = $ultimaD + 2;
-    $ws->mergeCells("A{$pie}:{$ult}{$pie}");
-    $ws->setCellValue("A{$pie}", 'En el detalle cada fila es una visita. Dif. = precio de la competencia menos precio de Banasupro (positivo = Banasupro más barato).');
-    $ws->getStyle("A{$pie}")->getFont()->setSize(8)->setItalic(true)->getColor()->setRGB(BX_GRIS);
-    $ws->getStyle("A{$pie}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-    // Vista e impresión: se fija solo la franja de marca; el detalle se imprime con su encabezado repetido
-    $ws->freezePane('A7');
-    $ps = $ws->getPageSetup();
-    $ps->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)->setPaperSize(PageSetup::PAPERSIZE_LETTER);
-    $ps->setFitToPage(true)->setFitToWidth(1)->setFitToHeight(0);
-    $ps->setPrintArea("A1:{$ult}{$pie}");
-    $ps->setHorizontalCentered(true);
-    $ws->getPageMargins()->setTop(0.5)->setBottom(0.6)->setLeft(0.4)->setRight(0.4);
-    $ws->getHeaderFooter()->setOddFooter('&L&8Banasupro · Benchmark de Precios&R&8Página &P de &N');
-    $ws->setSelectedCell('A1');
-
-    while (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    header('Content-Disposition: attachment; filename="' . $ctx['archivo'] . '.xlsx"');
-    header('Cache-Control: no-store');
-    (new Xlsx($ss))->save('php://output');
-    exit;
-}
+// Lector por lotes para el Excel: pide 5,000 filas a la vez (LIMIT/OFFSET sobre un orden estable, d.id desempata)
+$leerLote = function (int $desde, int $cantidad) use ($pdo, $sqlDetalle, $params): array {
+    $st = $pdo->prepare($sqlDetalle . ' LIMIT ' . (int)$cantidad . ' OFFSET ' . (int)$desde);
+    $st->execute($params);
+    return array_map(fn($r) => bx_enriquecer(array_change_key_case($r, CASE_LOWER)), $st->fetchAll(PDO::FETCH_ASSOC));
+};
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  PDF (Dompdf): resumen por familia y competidor + detalle de todos los artículos
@@ -532,7 +244,10 @@ function bx_pdf(array $filas, array $resumen, array $kpi, array $ctx): void
             . '</tr>';
     }
     $detalleSeccion = '';
-    if ($filas) {
+    if (!empty($ctx['detalle_omitido'])) {
+        $detalleSeccion = '<div class="nota" style="margin-top:14px;font-size:9px"><b>Detalle no incluido en el PDF:</b> hay '
+            . number_format((int)$ctx['total']) . ' registros con estos filtros. El detalle completo está en el Excel; este PDF muestra el resumen por familia y competidor.</div>';
+    } elseif ($filas) {
         $detalleSeccion = '<div style="page-break-before:always"></div>
     <div class="titulo" style="font-size:14px;margin-bottom:6px">DETALLE DE LEVANTAMIENTOS</div>
     <div class="band1"></div><div class="band2"></div>
@@ -597,6 +312,7 @@ function bx_pdf(array $filas, array $resumen, array $kpi, array $ctx): void
     $opt = new \Dompdf\Options();
     $opt->set('isRemoteEnabled', false);
     $opt->set('isHtml5ParserEnabled', true);
+    $opt->set('isFontSubsettingEnabled', true);
     $opt->set('defaultFont', 'DejaVu Sans');
     $pdf = new \Dompdf\Dompdf($opt);
     $pdf->loadHtml($html, 'UTF-8');
@@ -619,7 +335,12 @@ function bx_pdf(array $filas, array $resumen, array $kpi, array $ctx): void
 }
 
 if ($formato === 'xlsx') {
-    bx_excel($filas, $resumen, $kpi, $ctx);
+    try {
+        benchmark_excel_armar($leerLote, $totalFilas, $resumen, $kpi, $ctx)->enviar($ctx['archivo'] . '.xlsx');
+    } catch (Throwable $e) {
+        error_log('benchmark_exportar (xlsx): ' . $e->getMessage());
+        bx_fin(500, 'No se pudo generar el Excel.');
+    }
 } else {
     bx_pdf($filas, $resumen, $kpi, $ctx);
 }

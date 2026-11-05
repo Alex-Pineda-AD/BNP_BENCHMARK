@@ -113,8 +113,6 @@ function escapar($valor) {
 <html lang="es">
 <head>
     <?php include '../../includes/head.php'; ?>
-    <!-- Iconos FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../assets/css/benchmark.css">
 </head>
 
@@ -145,7 +143,7 @@ function escapar($valor) {
                                 <p class="mb-0 text-white-50">Módulo de captura masiva directa contra la competencia.</p>
                             </div>
                             <a href="?actualizar=1" class="btn btn-light text-primary fw-bold btn-sm" title="Vuelve a consultar los precios en Softland">
-                                <i class="fas fa-rotate"></i> Actualizar precios
+                                <i class="fas fa-sync-alt"></i> Actualizar precios
                                 <?php if (!empty($resSync['ts'])): ?><small id="bmUltimaSync" class="d-block fw-normal text-muted">Última: <?= date('H:i', $resSync['ts']) ?></small><?php endif; ?>
                             </a>
                         </div>
@@ -201,7 +199,7 @@ function escapar($valor) {
                     <!-- Matriz de captura por categoría: una pestaña por categoría, filas apiladas en celular -->
                     <section class="card shadow-sm border-0">
                         <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0 text-white"><i class="fas fa-basket-shopping"></i> Precios por categoría</h6>
+                            <h6 class="mb-0 text-white"><i class="fas fa-shopping-basket"></i> Precios por categoría</h6>
                             <span class="badge bg-light text-primary" id="badgeTotalCapturados">0 de <?= (int)$totalProductosCatalogo ?></span>
                         </div>
 

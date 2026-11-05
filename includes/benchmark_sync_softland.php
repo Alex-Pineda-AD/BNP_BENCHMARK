@@ -13,7 +13,13 @@
 //    no soportada: no se guarda un precio de caja ni uno tomado de otro nivel de precio.
 require_once __DIR__ . '/benchmark_auditoria.php';
 
-const BENCHMARK_UNIDADES_VENTA = ['UND', 'LBS', 'LTR', 'PAQ', 'GAL', 'BOL'];
+const BENCHMARK_UNIDADES_VENTA = ['UND', 'LBS', 'LTR', 'PAQ', 'GAL', 'BOL', 'ONZ', 'ARB'];
+
+/**
+ * Unidades de venta que no son la unidad base de comparación: cuántas LIBRAS equivale una unidad.
+ * El precio por unidad se calcula siempre por libra (ONZ: 16 onzas = 1 libra; ARB: 1 arroba = 25 libras).
+ * Se usa dentro del SQL de sincronización (CASE) y debe mantenerse igual.
+ */
 
 /**
  * Categorías "comodín" de Softland (proyectos u otras) donde hay artículos que en realidad son de una familia.
@@ -58,8 +64,11 @@ function benchmark_ubicaciones_por_familia(array $vigentes): array
 function benchmark_ubicacion_para(array $f, array $ubicaciones): ?array
 {
     $fam = (int)$f['id_familia'];
-    $candidatos = $ubicaciones['palabra'][$fam . '|' . benchmark_primera_palabra((string)$f['nombre_producto'])]
-        ?? $ubicaciones['familia'][$fam] ?? null;
+    $candidatos = $ubicaciones['palabra'][$fam . '|' . benchmark_primera_palabra((string)$f['nombre_producto'])] ?? null;
+    // Con menos de 3 artículos con esa primera palabra no hay referencia fiable: se usa la familia completa
+    if ($candidatos === null || array_sum($candidatos) < 3) {
+        $candidatos = $ubicaciones['familia'][$fam] ?? null;
+    }
     if (!$candidatos) {
         return null;
     }
@@ -135,7 +144,7 @@ function benchmark_normalizar_nombre(string $nombre): string
  * @return array{actualizados:int, con_familia:int, sin_familia:int, excluidos:string[], duplicados:string[], sin_alcance:bool}
  *   excluidos  = productos ya guardados que Softland no devuelve con precio válido
  *   duplicados = mismo nombre con otro código más reciente (se oculta el viejo)
- *   reubicados = artículos de categorías comodín (PROYECTOS) mostrados junto a los de su familia
+ *   reubicados = artículos con familia mostrados junto a los de su familia (PROYECTOS, leche en otras categorías, etc.)
  */
 function benchmark_sincronizar_softland(PDO $pdo, string $origen = 'sync_softland'): array
 {
@@ -192,7 +201,8 @@ function benchmark_sincronizar_softland(PDO $pdo, string $origen = 'sync_softlan
                COALESCE(NULLIF(LEFT(LTRIM(RTRIM(p.Clasificacion3)), 100), ''), 'General') AS subcategoria,
                CAST(p.Precio AS DECIMAL(12,2)) AS precio_lista,
                CAST(a.FACTOR_EMPAQUE AS DECIMAL(12,4)) AS factor_empaque,
-               CAST(p.Precio / a.FACTOR_EMPAQUE AS DECIMAL(10,2)) AS precio_referencia,
+               CAST(p.Precio / (a.FACTOR_EMPAQUE * CASE a.UNIDAD_VENTA WHEN 'ONZ' THEN 0.0625 WHEN 'ARB' THEN 25.0 ELSE 1.0 END) AS DECIMAL(10,2)) AS precio_referencia,
+               a.UNIDAD_VENTA AS unidad_venta,
                CONVERT(VARCHAR(23), a.FCH_HORA_ULT_MODIF, 121) AS modificado
         FROM PreciosRecientes p
         JOIN BANASUPRO.ARTICULO a ON a.ARTICULO = p.ARTICULO
@@ -235,14 +245,18 @@ function benchmark_sincronizar_softland(PDO $pdo, string $origen = 'sync_softlan
         $vigentes[$codigo]['id_familia'] = $idFamilia;
     }
 
-    // Artículos de categorías comodín (p. ej. PROYECTOS): se colocan donde van los de su familia
+    // Todo artículo con familia se muestra donde van los de su familia (comodín PROYECTOS, leche en
+    // ENLATADOS o BEBES, una pasta en HARINAS...). Solo cambia lo que ve Benchmark, no Softland.
     $ubicaciones = benchmark_ubicaciones_por_familia($vigentes);
     foreach ($vigentes as $codigo => $f) {
-        if (empty($f['id_familia']) || !benchmark_es_categoria_comodin((string)$f['clasificacion2'])) {
+        if (empty($f['id_familia'])) {
             continue;
         }
         $nueva = benchmark_ubicacion_para($f, $ubicaciones);
-        if ($nueva !== null) {
+        $mismo = $nueva !== null
+            && mb_strtoupper(trim((string)$f['clasificacion2']), 'UTF-8') === mb_strtoupper($nueva['clasificacion2'], 'UTF-8')
+            && mb_strtoupper(trim((string)$f['subcategoria']), 'UTF-8') === mb_strtoupper($nueva['subcategoria'], 'UTF-8');
+        if ($nueva !== null && !$mismo) {
             $vigentes[$codigo]['clasificacion2'] = $nueva['clasificacion2'];
             $vigentes[$codigo]['subcategoria']   = $nueva['subcategoria'];
             $resumen['reubicados'][] = $codigo;
@@ -263,8 +277,8 @@ function benchmark_sincronizar_softland(PDO $pdo, string $origen = 'sync_softlan
 
     $upsert = $pdo->prepare("
         INSERT INTO benchmark.benchmark_productos
-            (codigo, nombre_producto, categoria, clasificacion2, precio_lista, factor_empaque, precio_referencia, id_familia, estado)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+            (codigo, nombre_producto, categoria, clasificacion2, precio_lista, factor_empaque, precio_referencia, unidad_venta, id_familia, estado)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT (codigo) DO UPDATE SET
             nombre_producto     = EXCLUDED.nombre_producto,
             categoria           = EXCLUDED.categoria,
@@ -272,6 +286,7 @@ function benchmark_sincronizar_softland(PDO $pdo, string $origen = 'sync_softlan
             precio_lista        = EXCLUDED.precio_lista,
             factor_empaque      = EXCLUDED.factor_empaque,
             precio_referencia   = EXCLUDED.precio_referencia,
+            unidad_venta        = EXCLUDED.unidad_venta,
             id_familia          = CASE WHEN benchmark_productos.familia_manual
                                        THEN benchmark_productos.id_familia
                                        ELSE EXCLUDED.id_familia END,
@@ -283,7 +298,7 @@ function benchmark_sincronizar_softland(PDO $pdo, string $origen = 'sync_softlan
         foreach ($vigentes as $codigo => $f) {
             $upsert->execute([
                 $codigo, $f['nombre_producto'], $f['subcategoria'], $f['clasificacion2'],
-                $f['precio_lista'], $f['factor_empaque'], $f['precio_referencia'], $f['id_familia'],
+                $f['precio_lista'], $f['factor_empaque'], $f['precio_referencia'], $f['unidad_venta'], $f['id_familia'],
             ]);
             $resumen['actualizados']++;
             $f['id_familia'] === null ? $resumen['sin_familia']++ : $resumen['con_familia']++;

@@ -1,3 +1,21 @@
+# ===== NO SUBIR: credenciales locales =====
 /connection/database.local.php
 /connection/database_sqlserver.local.php
+
+# ===== NO SUBIR: archivos generados por el sistema (candado y cache de sincronización) =====
 /cache/
+
+# ===== NO SUBIR: carpetas y scripts de trabajo personal =====
+/_to_delete/
+/tools/
+/tests/
+/controllers/reset_pass.php
+/controllers/generar_hash.php
+/controllers/login_prueba.php
+
+# ===== NO SUBIR: caché de fuentes que genera Dompdf al crear PDF =====
+/vendor/dompdf/dompdf/lib/fonts/*.ufm.json
+/vendor/dompdf/dompdf/lib/fonts/installed-fonts.json
+
+# ===== SI SE SUBE (no agregar aquí): includes/, controllers/benchmark_controllers/, modules/benchmark/,
+# ===== js/benchmark_js/, sql/ y vendor/ (el resto de librerías) =====
