@@ -90,7 +90,7 @@ try {
     $sqlDetalle = "
         SELECT " . BENCHMARK_COMPETIDOR_NOMBRE . " AS competidor, l.fecha_levantamiento,
                f.nombre AS familia, p.clasificacion2 AS categoria, p.categoria AS subcategoria,
-               p.nombre_producto AS producto,
+               p.nombre_producto || CASE WHEN d.base_comparacion = 'paquete' THEN ' (paquete)' ELSE '' END AS producto,
                " . BENCHMARK_PRECIO_PROPIO . " AS precio_propio,
                d.precio_competencia, d.observaciones
         " . BENCHMARK_FROM_BASE . "

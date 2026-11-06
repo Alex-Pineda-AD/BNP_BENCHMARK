@@ -52,6 +52,8 @@ $observaciones_visita = mb_substr(trim((string)($data['observaciones_visita'] ??
 $precio_competencia   = trim((string)($data['precio_competencia'] ?? ''));
 $observaciones_item   = mb_substr(trim((string)($data['observaciones_item'] ?? '')), 0, 500);
 $actualizar           = !empty($data['actualizar']); // true solo si el usuario confirmó la actualización
+// Base de comparación: 'unidad' (precio de una unidad) o 'paquete' (el mismo paquete que vende Banasupro)
+$base_comparacion     = (($data['base_comparacion'] ?? 'unidad') === 'paquete') ? 'paquete' : 'unidad';
 $fecha_hoy            = date('Y-m-d');
 
 // numeric(10,2): máximo 99,999,999.99
@@ -72,13 +74,24 @@ try {
     }
 
     // El precio propio se toma de la base, no del navegador
-    $stmtPrecio = $pdo->prepare("SELECT precio_referencia FROM benchmark.benchmark_productos WHERE id = ? AND estado = 1");
+    $stmtPrecio = $pdo->prepare("SELECT precio_referencia, precio_lista, factor_empaque FROM benchmark.benchmark_productos WHERE id = ? AND estado = 1");
     $stmtPrecio->execute([$id_producto]);
-    $precio_banasupro = $stmtPrecio->fetchColumn();
-    if ($precio_banasupro === false) {
+    $producto = $stmtPrecio->fetch(PDO::FETCH_ASSOC);
+    if ($producto === false) {
         echo json_encode(['success' => false, 'message' => 'El producto no existe o está inactivo.']);
         exit;
     }
+    $producto = array_change_key_case($producto, CASE_LOWER);
+
+    // Unidad: precio por unidad (PRECIO LISTA ÷ FACTOR_EMPAQUE). Paquete: PRECIO LISTA tal cual Softland.
+    // Si el artículo no viene en paquete (factor 1), no tiene precio de lista o el paquete vale lo mismo que
+    // la unidad (ej. ONZ → libra), solo se compara por unidad.
+    if ($base_comparacion === 'paquete'
+        && ((float)$producto['factor_empaque'] <= 1 || (float)$producto['precio_lista'] <= 0
+            || abs((float)$producto['precio_lista'] - (float)$producto['precio_referencia']) < 0.005)) {
+        $base_comparacion = 'unidad';
+    }
+    $precio_banasupro = $base_comparacion === 'paquete' ? $producto['precio_lista'] : $producto['precio_referencia'];
 
     $pdo->beginTransaction();
     benchmark_auditoria_contexto($pdo); // auditoría: quién guarda el precio
@@ -103,7 +116,7 @@ try {
 
     // 2. ¿Ya existe un precio de este producto en esta visita?
     $stmtExist = $pdo->prepare("
-        SELECT id, precio_competencia FROM benchmark.benchmark_precios_detalle
+        SELECT id, precio_competencia, base_comparacion FROM benchmark.benchmark_precios_detalle
         WHERE id_levantamiento = ? AND id_producto = ? LIMIT 1
     ");
     $stmtExist->execute([$id_levantamiento, $id_producto]);
@@ -116,6 +129,7 @@ try {
             'success'       => false,
             'existe'        => true,
             'precio_actual' => (float)($detalle['precio_competencia'] ?? $detalle['PRECIO_COMPETENCIA']),
+            'base_actual'   => (string)($detalle['base_comparacion'] ?? $detalle['BASE_COMPARACION'] ?? 'unidad'),
             'message'       => 'Ya existe un precio para este artículo con este competidor.'
         ]);
         exit;
@@ -131,22 +145,23 @@ try {
         $idDetalle = $detalle['id'] ?? $detalle['ID'];
         $stmtUpdDet = $pdo->prepare("
             UPDATE benchmark.benchmark_precios_detalle
-            SET precio_banasupro_referencia = ?, precio_competencia = ?, observaciones = ?
+            SET precio_banasupro_referencia = ?, precio_competencia = ?, observaciones = ?, base_comparacion = ?
             WHERE id = ?
         ");
-        $stmtUpdDet->execute([$precio_banasupro, $precio_competencia, $observaciones_item, $idDetalle]);
+        $stmtUpdDet->execute([$precio_banasupro, $precio_competencia, $observaciones_item, $base_comparacion, $idDetalle]);
     } else {
         $stmtInsDet = $pdo->prepare("
             INSERT INTO benchmark.benchmark_precios_detalle
-            (id_levantamiento, id_producto, precio_banasupro_referencia, precio_competencia, observaciones)
-            VALUES (?, ?, ?, ?, ?)
+            (id_levantamiento, id_producto, precio_banasupro_referencia, precio_competencia, observaciones, base_comparacion)
+            VALUES (?, ?, ?, ?, ?, ?)
         ");
         $stmtInsDet->execute([
             $id_levantamiento,
             $id_producto,
             $precio_banasupro,
             $precio_competencia,
-            $observaciones_item
+            $observaciones_item,
+            $base_comparacion
         ]);
     }
 

@@ -41,7 +41,7 @@ try {
                p.id AS id_producto, p.nombre_producto, p.clasificacion2 AS categoria, p.categoria AS subcategoria,
                f.nombre AS familia,
                " . BENCHMARK_PRECIO_PROPIO . " AS precio_propio,
-               d.precio_competencia, d.observaciones
+               d.precio_competencia, d.observaciones, d.base_comparacion
         " . BENCHMARK_FROM_BASE . "
         WHERE $where
         ORDER BY l.fecha_levantamiento DESC, d.id DESC
@@ -281,8 +281,8 @@ function signo(float $n, int $dec = 2): string {
                                         <th>Categoría</th>
                                         <th>Subcategoría</th>
                                         <th>Producto y presentación</th>
-                                        <th class="text-end">Precio Banasupro (c/u)</th>
-                                        <th class="text-end">Precio competencia (c/u)</th>
+                                        <th class="text-end">Precio Banasupro</th>
+                                        <th class="text-end">Precio competencia</th>
                                         <th class="text-end">Dif. (L.)</th>
                                         <th class="text-end">Dif. %</th>
                                         <th class="text-center">Estatus</th>
@@ -295,6 +295,7 @@ function signo(float $n, int $dec = 2): string {
                                     $n++;
                                     $propio = (float)$row['precio_propio'];
                                     $comp = (float)$row['precio_competencia'];
+                                    $baseTxt = ($row['base_comparacion'] ?? 'unidad') === 'paquete' ? 'por paquete' : 'por unidad';
                                     $dif = $comp - $propio;
                                     $difPct = $propio > 0 ? $dif / $propio * 100 : 0;
                                     if ($dif > 0)      { $estatus = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Más barato</span>'; $color = 'text-success fw-bold'; }
@@ -314,8 +315,8 @@ function signo(float $n, int $dec = 2): string {
                                         <td class="small"><?= escapar(benchmark_etiqueta($row['categoria'])) ?></td>
                                         <td class="small"><?= escapar(benchmark_etiqueta($row['subcategoria'])) ?></td>
                                         <td><?= escapar(benchmark_etiqueta($row['nombre_producto'])) ?></td>
-                                        <td class="text-end text-nowrap fw-bold text-primary">L. <?= number_format($propio, 2) ?></td>
-                                        <td class="text-end text-nowrap fw-bold">L. <?= number_format($comp, 2) ?></td>
+                                        <td class="text-end text-nowrap fw-bold text-primary">L. <?= number_format($propio, 2) ?><small class="d-block fw-normal text-muted"><?= $baseTxt ?></small></td>
+                                        <td class="text-end text-nowrap fw-bold">L. <?= number_format($comp, 2) ?><small class="d-block fw-normal text-muted"><?= $baseTxt ?></small></td>
                                         <td class="text-end text-nowrap <?= $color ?>"><?= signo($dif) ?></td>
                                         <td class="text-end text-nowrap <?= $color ?>"><?= signo($difPct) ?>%</td>
                                         <td class="text-center"><?= $estatus ?></td>

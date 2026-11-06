@@ -221,8 +221,8 @@ function escapar($valor) {
                                             <div class="d-none d-md-block bg-dark text-white small fw-bold px-3 py-2">
                                                 <div class="row g-2 align-items-center text-center">
                                                     <div class="col-md-6 text-start">PRODUCTO Y PRESENTACIÓN</div>
-                                                    <div class="col-md-2">PRECIO PROPIO (C/U)</div>
-                                                    <div class="col-md-3">PRECIO COMPETENCIA POR UNIDAD (L.)</div>
+                                                    <div class="col-md-2">PRECIO PROPIO</div>
+                                                    <div class="col-md-3">PRECIO COMPETENCIA (L.)</div>
                                                     <div class="col-md-1">ACC</div>
                                                 </div>
                                             </div>
@@ -242,24 +242,39 @@ function escapar($valor) {
                                             <?php foreach ($productosSub as $j => $prod):
                                                 $idProd = (int)$prod['id'];
                                                 $precioRef = (float)$prod['precio_referencia'];
+                                                // Solo se puede elegir "Paquete" si el artículo viene en paquete (factor > 1) y el paquete
+                                                // vale distinto que la unidad. Mismo criterio que el controlador de guardado.
+                                                $hayPaquete = $prod['factor_empaque'] > 1 && $prod['precio_lista'] > 0
+                                                              && abs($prod['precio_lista'] - $precioRef) >= 0.005;
+                                                $factorTxt  = rtrim(rtrim(number_format($prod['factor_empaque'], 2), '0'), '.');
                                             ?>
-                                                <div class="fila-producto border-bottom px-3 py-2 <?= $j % 2 ? 'bg-light' : '' ?>" data-id-producto="<?= $idProd ?>">
+                                                <div class="fila-producto border-bottom px-3 py-2 <?= $j % 2 ? 'bg-light' : '' ?>" data-id-producto="<?= $idProd ?>"
+                                                     data-precio-unidad="<?= $precioRef ?>"
+                                                     data-precio-paquete="<?= $hayPaquete ? (float)$prod['precio_lista'] : '' ?>"
+                                                     data-factor="<?= escapar($factorTxt) ?>">
                                                     <div class="row g-2 align-items-center">
                                                         <div class="col-12 col-md-6">
                                                             <strong class="d-block text-dark nombre-producto" style="font-size: 0.9rem;"><?= escapar(etiqueta($prod['nombre_producto'])) ?></strong>
                                                             <?php if (!empty($prod['familia'])): ?>
                                                                 <span class="badge bg-light-primary me-1"><?= escapar($prod['familia']) ?></span>
                                                             <?php endif; ?>
-                                                            <?php if ($prod['factor_empaque'] > 1): ?>
-                                                                <small class="text-muted">Empaque ×<?= rtrim(rtrim(number_format($prod['factor_empaque'], 2), '0'), '.') ?> = L. <?= number_format($prod['precio_lista'], 2) ?></small>
+                                                            <?php if ($hayPaquete): ?>
+                                                                <small class="text-muted">Paquete ×<?= escapar($factorTxt) ?> = L. <?= number_format($prod['precio_lista'], 2) ?></small>
                                                             <?php endif; ?>
                                                         </div>
                                                         <div class="col-5 col-md-2 text-md-center">
-                                                            <div class="small text-muted d-md-none">Precio propio (c/u)</div>
-                                                            <span class="fw-bold text-muted">L. <?= number_format($precioRef, 2) ?></span>
+                                                            <div class="small text-muted d-md-none">Precio propio</div>
+                                                            <span class="fw-bold text-muted precio-propio-valor">L. <?= number_format($precioRef, 2) ?></span>
+                                                            <small class="d-block text-muted etiqueta-base-propia"><?= $hayPaquete ? 'por unidad' : '' ?></small>
                                                         </div>
                                                         <div class="col-7 col-md-3">
-                                                            <div class="small text-muted d-md-none">Competencia (por unidad)</div>
+                                                            <div class="small text-muted d-md-none">Competencia</div>
+                                                            <?php if ($hayPaquete): ?>
+                                                                <select class="form-select form-select-sm mb-1 sel-base-comparacion" aria-label="Comparar por unidad o por paquete">
+                                                                    <option value="unidad">Por unidad</option>
+                                                                    <option value="paquete">Por paquete ×<?= escapar($factorTxt) ?></option>
+                                                                </select>
+                                                            <?php endif; ?>
                                                             <div class="input-group input-group-sm">
                                                                 <span class="input-group-text bg-white">L.</span>
                                                                 <input type="number" step="0.01" min="0" inputmode="decimal" class="form-control text-end fw-bold input-precio-comp" placeholder="0.00">

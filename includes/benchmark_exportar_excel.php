@@ -151,7 +151,7 @@ function benchmark_excel_armar(callable $leerLote, int $totalFilas, array $resum
 
     // ═══════════ DETALLE: todos los levantamientos ═══════════
     $seccion('DETALLE DE LEVANTAMIENTOS');
-    $titulos = ['N.', 'COMPETIDOR', 'FECHA', 'FAMILIA', 'PRODUCTO Y PRESENTACIÓN', 'PRECIO BANASUPRO (C/U)', 'PRECIO COMPETENCIA (C/U)',
+    $titulos = ['N.', 'COMPETIDOR', 'FECHA', 'FAMILIA', 'PRODUCTO Y PRESENTACIÓN', 'PRECIO BANASUPRO', 'PRECIO COMPETENCIA',
         'DIF. (L.)', 'DIF. %', 'ESTATUS', 'CATEGORÍA', 'SUBCATEGORÍA', 'NOTAS'];
     $celdasEnc = [];
     foreach ($titulos as $i => $tit) {

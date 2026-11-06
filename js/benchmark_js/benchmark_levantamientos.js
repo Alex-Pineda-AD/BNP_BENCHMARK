@@ -17,6 +17,44 @@ function escaparHtml(texto) {
     return div.innerHTML;
 }
 
+// Base de comparación de la fila: 'unidad' o 'paquete' (solo si el artículo tiene paquete)
+function baseDeFila(row) {
+    const sel = row.querySelector('.sel-base-comparacion');
+    return sel && sel.value === 'paquete' && row.dataset.precioPaquete ? 'paquete' : 'unidad';
+}
+
+// Precio propio según la base elegida (el servidor lo vuelve a tomar de la base de datos al guardar)
+function precioPropioDeFila(row) {
+    return baseDeFila(row) === 'paquete'
+        ? parseFloat(row.dataset.precioPaquete)
+        : parseFloat(row.dataset.precioUnidad);
+}
+
+function textoBase(base, factor) {
+    return base === 'paquete' ? 'paquete ×' + factor : 'unidad';
+}
+
+// Al cambiar entre unidad y paquete se actualiza el precio propio mostrado
+function alCambiarBase(event) {
+    const sel = event.target.closest('.sel-base-comparacion');
+    if (!sel) { return; }
+    const row = sel.closest('.fila-producto');
+    const base = baseDeFila(row);
+    const valor = row.querySelector('.precio-propio-valor');
+    const etiqueta = row.querySelector('.etiqueta-base-propia');
+    if (valor) { valor.textContent = formatoLempiras(precioPropioDeFila(row)); }
+    if (etiqueta) { etiqueta.textContent = base === 'paquete' ? 'por paquete ×' + row.dataset.factor : 'por unidad'; }
+    // El precio escrito era de la otra base: se limpia y se marca la fila como pendiente
+    const input = row.querySelector('.input-precio-comp');
+    if (input) { input.value = ''; input.focus(); }
+    if (row.dataset.guardado === '1') {
+        row.dataset.guardado = '0';
+        row.style.backgroundColor = '';
+        actualizarContadores();
+    }
+}
+document.addEventListener('change', alCambiarBase);
+
 function restaurarBoton(button) {
     button.disabled = false;
     button.innerHTML = '<i class="fas fa-save"></i>';
@@ -38,6 +76,10 @@ async function guardarFilaIndividual(button, idProducto, precioBanasupro) {
     if (!row) {
         avisar('error', 'Error', 'No se encontró la fila del producto. Recarga la página con Ctrl+F5.');
         return;
+    }
+    const baseComparacion = baseDeFila(row);
+    if (baseComparacion === 'paquete') {
+        precioBanasupro = precioPropioDeFila(row); // paquete: PRECIO LISTA tal cual Softland
     }
 
     const selectCompetidor = document.getElementById('global_id_competidor');
@@ -79,6 +121,7 @@ async function guardarFilaIndividual(button, idProducto, precioBanasupro) {
             '<p class="mb-2"><strong>' + escaparHtml(nombreProducto) + '</strong><br>' +
             '<small class="text-muted">Competidor: ' + escaparHtml(nombreCompetidor) + '</small></p>' +
             '<table class="table table-sm mb-0">' +
+            '<tr><td>Comparación</td><td class="text-end">' + escaparHtml(textoBase(baseComparacion, row.dataset.factor)) + '</td></tr>' +
             '<tr><td>Precio Banasupro</td><td class="text-end fw-bold">' + formatoLempiras(precioBanasupro) + '</td></tr>' +
             '<tr><td>Precio Competencia</td><td class="text-end fw-bold">' + formatoLempiras(precioCompetencia) + '</td></tr>' +
             '<tr><td>Diferencia</td><td class="text-end fw-bold ' + claseDif + '">' +
@@ -102,6 +145,7 @@ async function guardarFilaIndividual(button, idProducto, precioBanasupro) {
         id_producto: idProducto,
         precio_competencia: precioCompetencia,
         observaciones_item: observacionesItem,
+        base_comparacion: baseComparacion,
         actualizar: false
     }, nombreProducto, nombreCompetidor);
 }
@@ -142,8 +186,8 @@ function enviarGuardado(button, row, payload, nombreProducto, nombreCompetidor) 
                         '<p class="mb-2"><strong>' + escaparHtml(nombreProducto) + '</strong><br>' +
                         '<small class="text-muted">Competidor: ' + escaparHtml(nombreCompetidor) + '</small></p>' +
                         '<table class="table table-sm mb-2">' +
-                        '<tr><td>Precio registrado</td><td class="text-end fw-bold">' + formatoLempiras(data.precio_actual) + '</td></tr>' +
-                        '<tr><td>Precio nuevo</td><td class="text-end fw-bold text-primary">' + formatoLempiras(payload.precio_competencia) + '</td></tr>' +
+                        '<tr><td>Precio registrado' + (data.base_actual ? ' (' + escaparHtml(data.base_actual) + ')' : '') + '</td><td class="text-end fw-bold">' + formatoLempiras(data.precio_actual) + '</td></tr>' +
+                        '<tr><td>Precio nuevo (' + escaparHtml(payload.base_comparacion) + ')</td><td class="text-end fw-bold text-primary">' + formatoLempiras(payload.precio_competencia) + '</td></tr>' +
                         '</table>' +
                         '<p class="mb-0">¿Deseas actualizar el precio?</p>' +
                         '</div>',

@@ -151,7 +151,8 @@ try {
     if ($productoSel !== null) {
         $rows = filas($pdo, '
             SELECT ' . $periodo . ' AS periodo, c.id AS id_comp, ' . BENCHMARK_COMPETIDOR_NOMBRE . ' AS competidor,
-                   AVG(d.precio_competencia) AS precio_comp, AVG(' . PROPIO . ') AS precio_propio
+                   AVG(d.precio_competencia * ' . BENCHMARK_A_UNIDAD . ') AS precio_comp,
+                   AVG(' . PROPIO . ' * ' . BENCHMARK_A_UNIDAD . ') AS precio_propio
             ' . FROM_BASE . ' WHERE ' . $where . ' AND p.id = ?
             GROUP BY ' . $periodo . ', c.id, c.nombre, c.sucursal
             ORDER BY 1', array_merge($params, [$productoSel]));
@@ -176,7 +177,7 @@ try {
     $rows = filas($pdo, '
         WITH base AS (
             SELECT p.id AS id_producto, p.nombre_producto AS nombre, c.id AS id_comp,
-                   l.fecha_levantamiento AS fecha, AVG(d.precio_competencia) AS precio
+                   l.fecha_levantamiento AS fecha, AVG(d.precio_competencia * ' . BENCHMARK_A_UNIDAD . ') AS precio
             ' . FROM_BASE . ' WHERE ' . $where . '
             GROUP BY p.id, p.nombre_producto, c.id, l.fecha_levantamiento
         ), rango AS (

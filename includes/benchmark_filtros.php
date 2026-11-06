@@ -7,6 +7,12 @@
 // Precio propio: snapshot del levantamiento, con el precio actual como respaldo.
 const BENCHMARK_PRECIO_PROPIO = 'COALESCE(NULLIF(d.precio_banasupro_referencia, 0), p.precio_referencia)';
 
+// Factor para llevar un precio capturado "por paquete" a precio por unidad (precio_referencia ÷ precio_lista).
+// Se usa solo cuando se promedian precios de un mismo producto a lo largo del tiempo, para no mezclar
+// precios de paquete con precios de unidad. Las comparaciones fila por fila no lo necesitan: en cada fila
+// el precio propio y el de la competencia ya están en la misma base.
+const BENCHMARK_A_UNIDAD = "(CASE WHEN d.base_comparacion = 'paquete' AND p.precio_lista > 0 THEN p.precio_referencia / p.precio_lista ELSE 1 END)";
+
 // Nombre completo del competidor: cadena + sucursal ("La Colonia – Las Hadas"). Sin sucursal, solo la cadena.
 // Alias c = benchmark_competidores. Usar siempre esta constante para mostrar competidores.
 const BENCHMARK_COMPETIDOR_NOMBRE = "(c.nombre || COALESCE(' – ' || NULLIF(TRIM(c.sucursal), ''), ''))";
