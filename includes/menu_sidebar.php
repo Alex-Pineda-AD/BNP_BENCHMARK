@@ -50,20 +50,39 @@ if(!empty($_SESSION['user_id'])) {
 .sidebar-session-profile{display:flex;align-items:center;gap:12px;padding:12px;background:#f7f8fa;border:1px solid #eceef1;border-radius:10px}
 .sidebar-session-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 38px;height:38px;border-radius:50%;background:#e9ecf1;color:#505b6b;font-size:20px}
 .sidebar-session-info{min-width:0;line-height:1.4;overflow-wrap:anywhere}
-.sidebar-session-name{font-size:13px;font-weight:700;color:#303947}
-.sidebar-session-login{font-size:11px;color:#77808b;margin-top:2px}
-.sidebar-session-role{font-size:12px;color:#596574;margin-top:4px}
-.sidebar-session-logout{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:8px 12px;border:0;border-radius:6px;background:transparent;color:#626b77;font-size:12px;cursor:pointer}
+.sidebar-session-name{font-size:14px;font-weight:700;color:#303947}
+.sidebar-session-login{font-size:12px;color:#5f6a78;margin-top:2px}
+.sidebar-session-role{font-size:13px;color:#4a5565;margin-top:4px}
+.sidebar-session-logout{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:8px 12px;border:0;border-radius:6px;background:transparent;color:#626b77;font-size:13px;cursor:pointer}
 .sidebar-session-logout:hover{background:#f3f4f6;color:#303947}
 .sidebar-session-logout:focus-visible{outline:2px solid #6b7280;outline-offset:2px}
+/* Refinamiento visual del menú (solo estilos; no cambia estructura ni rutas) */
+.sidebar-wrapper.sidebar-session-layout{box-shadow:1px 0 0 #eef0f4}
+.sidebar-wrapper.sidebar-session-layout .sidebar-header{padding:1.5rem 1.75rem 1.1rem;border-bottom:1px solid #eef0f4}
+.sidebar-wrapper.sidebar-session-layout .menu{margin-top:.5rem;padding:0 1rem;font-weight:500}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-title{margin:1.7rem 0 .6rem;padding:0 .9rem;font-size:1.05rem;font-weight:600;letter-spacing:0;text-transform:none;color:#25396f}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-title i{display:none}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-item{margin-top:3px}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-link{position:relative;padding:.8rem .9rem;font-size:1rem;font-weight:500;color:#25396f;border-radius:.65rem;transition:background-color .2s,color .2s}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-link i{width:1.5rem;text-align:center;font-size:1.05rem;color:#7c8db5;transition:color .2s}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-link span{margin-left:.8rem}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-link:hover{background-color:#f4f6fb;color:#25396f}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-link:hover i{color:#435ebe}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-item.active .sidebar-link{background-color:rgba(67,94,190,.09)}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-item.active .sidebar-link::before{content:"";position:absolute;left:0;top:22%;bottom:22%;width:3px;border-radius:0 3px 3px 0;background:#435ebe}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-item.active .sidebar-link span{color:#435ebe!important;font-weight:600}
+.sidebar-wrapper.sidebar-session-layout .menu .sidebar-item.active .sidebar-link i,.sidebar-wrapper.sidebar-session-layout .menu .sidebar-item.active .sidebar-link svg{color:#435ebe!important;fill:#435ebe!important}
+.sidebar-session-footer{padding:14px 16px 16px;border-top:1px solid #eef0f4}
+.sidebar-session-profile{padding:10px 12px;background:#f8f9fc;border:0;border-radius:12px}
+.sidebar-session-avatar{flex:0 0 34px;height:34px;font-size:18px;background:#e8ecf7;color:#435ebe}
+.sidebar-session-logout{margin-top:6px;color:#5b6b94;transition:background-color .2s,color .2s}
+.sidebar-session-logout:hover{background:#fdf1f1;color:#c0392b}
 </style>
 <div class="sidebar-wrapper active sidebar-session-layout">
                 <div class="sidebar-header">
                     <div class="d-flex justify-content-between">
                         <div class="logo">
-                            <!-- <a href="index.html"><img src="../../assets/images/logo/logo.png" alt="Logo" srcset=""></a> -->
-                            
-                            <a ><h3>...::: Banasupro :::...</h3></a>
+                            <a href="../benchmark/benchmark_competidores.php" class="sidebar-logo-link"><img src="../../assets/images/logo/logo_banasupro_horizontal.png" alt="Banasupro" style="display:block;height:auto;width:100%;max-width:190px;"></a>
                         </div>
                         <div class="toggler">
                             <a href="#" class="sidebar-hide d-xl-none d-block"><i class="bi bi-x bi-middle"></i></a>

@@ -54,6 +54,7 @@ try {
 // Catálogo por categoría (Clasificacion2) y subcategoría (Clasificacion3) de Softland,
 // limitado al alcance configurado. Las claves vienen en MAYÚSCULAS por PDO::CASE_UPPER.
 $categoriasCatalogo = [];
+$familiasCatalogo = []; // Vista "manejo en ventas": familia => cantidad de artículos
 $totalProductosCatalogo = 0;
 try {
     $stmtCat = $pdo->query("
@@ -91,15 +92,20 @@ try {
             'precio_lista' => (float)$fila['precio_lista'],
             'factor_empaque' => (float)$fila['factor_empaque'],
             'familia' => $fila['familia'],
+            'orden' => $totalProductosCatalogo,
         ];
+        $familiasCatalogo[(string)$fila['familia']] = ($familiasCatalogo[(string)$fila['familia']] ?? 0) + 1;
         $categoriasCatalogo[$cat]['total']++;
         $totalProductosCatalogo++;
     }
     $categoriasCatalogo = array_values($categoriasCatalogo);
+    uksort($familiasCatalogo, 'strcasecmp');
 } catch (PDOException $e) {
     error_log('[benchmark_levantamientos] Catálogo por categoría: ' . $e->getMessage());
     $categoriasCatalogo = [];
+    $familiasCatalogo = [];
 }
+$indiceFamilia = array_flip(array_keys($familiasCatalogo)); // familia => posición en la vista por familia
 
 function etiqueta($texto) {
     return ucfirst(mb_strtolower((string)$texto, 'UTF-8'));
@@ -199,12 +205,30 @@ function escapar($valor) {
                     <!-- Matriz de captura por categoría: una pestaña por categoría, filas apiladas en celular -->
                     <section class="card shadow-sm border-0">
                         <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0 text-white"><i class="fas fa-shopping-basket"></i> Precios por categoría</h6>
+                            <h6 class="mb-0 text-white"><i class="fas fa-shopping-basket"></i> Precios por artículo</h6>
                             <span class="badge bg-light text-primary" id="badgeTotalCapturados">0 de <?= (int)$totalProductosCatalogo ?></span>
+                        </div>
+
+                        <!-- Selector de vista: dos pestañas grandes, también cómodas en celular y tablet -->
+                        <div class="bm-vistas-barra">
+                            <div class="bm-vistas" role="group" aria-label="Forma de listar los artículos">
+                                <button type="button" class="bm-vista-btn active" data-vista="softland" aria-pressed="true">
+                                    <i class="fas fa-database"></i>
+                                    <span><span class="d-none d-sm-inline">Listado </span>por Softland</span>
+                                    <span class="bm-vista-num"><?= count($categoriasCatalogo) ?></span>
+                                </button>
+                                <button type="button" class="bm-vista-btn" data-vista="familia" aria-pressed="false">
+                                    <i class="fas fa-tags"></i>
+                                    <span><span class="d-none d-sm-inline">Listado </span>por manejo en ventas</span>
+                                    <span class="bm-vista-num"><?= count($familiasCatalogo) ?></span>
+                                </button>
+                            </div>
+                            <div class="bm-vistas-ayuda"><i class="fas fa-info-circle"></i> <strong>Softland:</strong> agrupado por categoría y subcategoría del sistema. <strong>Manejo en ventas:</strong> agrupado por familia de producto. Es la misma lista; lo que captures se conserva al cambiar.</div>
                         </div>
 
                         <div class="card-body p-0" id="matrizProductos">
                             <?php if (!empty($categoriasCatalogo)): ?>
+                                <div id="vistaSoftland" class="bm-vista">
                                 <div class="bm-acordeon" id="acordeon-categorias">
                                     <?php foreach ($categoriasCatalogo as $i => $fam): ?>
                                         <div class="bm-acordeon-item bm-item-categoria">
@@ -251,13 +275,17 @@ function escapar($valor) {
                                                 <div class="fila-producto border-bottom px-3 py-2 <?= $j % 2 ? 'bg-light' : '' ?>" data-id-producto="<?= $idProd ?>"
                                                      data-precio-unidad="<?= $precioRef ?>"
                                                      data-precio-paquete="<?= $hayPaquete ? (float)$prod['precio_lista'] : '' ?>"
-                                                     data-factor="<?= escapar($factorTxt) ?>">
+                                                     data-factor="<?= escapar($factorTxt) ?>"
+                                                     data-orden="<?= (int)$prod['orden'] ?>"
+                                                     data-destino-softland="<?= $idSub ?>"
+                                                     data-destino-familia="fam-body-<?= (int)($indiceFamilia[(string)$prod['familia']] ?? 0) ?>">
                                                     <div class="row g-2 align-items-center">
                                                         <div class="col-12 col-md-6">
                                                             <strong class="d-block text-dark nombre-producto" style="font-size: 0.9rem;"><?= escapar(etiqueta($prod['nombre_producto'])) ?></strong>
                                                             <?php if (!empty($prod['familia'])): ?>
-                                                                <span class="badge bg-light-primary me-1"><?= escapar($prod['familia']) ?></span>
+                                                                <span class="badge bg-light-primary me-1 bm-badge-familia"><?= escapar($prod['familia']) ?></span>
                                                             <?php endif; ?>
+                                                            <span class="badge bg-light text-muted me-1 bm-ruta"><?= escapar(etiqueta($fam['nombre'])) ?> › <?= escapar(etiqueta($nombreSub)) ?></span>
                                                             <?php if ($hayPaquete): ?>
                                                                 <small class="text-muted">Paquete ×<?= escapar($factorTxt) ?> = L. <?= number_format($prod['precio_lista'], 2) ?></small>
                                                             <?php endif; ?>
@@ -297,6 +325,37 @@ function escapar($valor) {
                                             </div>
                                         </div>
                                     <?php endforeach; ?>
+                                </div>
+                                </div>
+
+                                <!-- Vista por manejo en ventas: las filas se mueven aquí desde benchmark_levantamientos.js (no se duplican) -->
+                                <div id="vistaFamilia" class="bm-vista d-none">
+                                    <div class="bm-acordeon" id="acordeon-familias">
+                                        <?php foreach ($familiasCatalogo as $nombreFam => $cantFam): $n = $indiceFamilia[$nombreFam]; ?>
+                                            <div class="bm-acordeon-item bm-item-categoria">
+                                                <button class="bm-acordeon-cab bm-cab-categoria collapsed" type="button"
+                                                        data-bs-toggle="collapse" data-bs-target="#pane-fam-<?= $n ?>" aria-expanded="false">
+                                                    <i class="fas fa-folder bm-ico bm-ico-cerrado"></i><i class="fas fa-folder-open bm-ico bm-ico-abierto"></i>
+                                                    <span class="bm-acordeon-titulo"><?= escapar($nombreFam) ?></span>
+                                                    <span class="badge bg-light text-dark contador-categoria" data-categoria="f<?= $n ?>">0/0</span>
+                                                    <i class="fas fa-chevron-down bm-chevron"></i>
+                                                </button>
+                                                <div id="pane-fam-<?= $n ?>" class="collapse" data-bs-parent="#acordeon-familias">
+                                                    <div class="panel-categoria" data-categoria="f<?= $n ?>">
+                                                        <div class="d-none d-md-block bg-dark text-white small fw-bold px-3 py-2">
+                                                            <div class="row g-2 align-items-center text-center">
+                                                                <div class="col-md-6 text-start">PRODUCTO Y PRESENTACIÓN</div>
+                                                                <div class="col-md-2">PRECIO PROPIO</div>
+                                                                <div class="col-md-3">PRECIO COMPETENCIA (L.)</div>
+                                                                <div class="col-md-1">ACC</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="bm-acordeon-cuerpo" id="fam-body-<?= $n ?>"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </div>
                             <?php else: ?>
                                 <div class="text-center text-muted py-4">No hay productos en el catálogo. Verifica el alcance de categorías y la conexión con Softland.</div>

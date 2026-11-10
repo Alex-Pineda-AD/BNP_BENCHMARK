@@ -58,6 +58,16 @@ try {
     $errorConsulta = 'Error al consultar la matriz comparativa.';
 }
 
+// Rankings del panel "Lo más importante" (si fallan, solo se oculta el panel)
+$rank = ['caros' => [], 'baratos' => [], 'familias' => [], 'competidores' => []];
+if (!$errorConsulta) {
+    try {
+        $rank = benchmark_rankings($pdo, $where, $params);
+    } catch (PDOException $e) {
+        error_log('benchmark_tabla_comparativa (rankings): ' . $e->getMessage());
+    }
+}
+
 $pct = fn(int $n) => $kpi['muestras'] > 0 ? round($n / $kpi['muestras'] * 100, 1) : 0;
 $truncado = count($detalles) >= LIMITE_FILAS;
 $qExport = benchmark_filtros_query($filtros);
@@ -136,20 +146,21 @@ function signo(float $n, int $dec = 2): string {
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="col-6 col-md-3 col-xl-2">
-                                <label for="fDesde" class="form-label small fw-bold"><i class="far fa-calendar text-primary"></i> Desde</label>
-                                <input type="date" id="fDesde" name="desde" class="form-control form-control-sm" max="<?= $hoy ?>" value="<?= escapar($filtros['desde']) ?>">
+                            <div class="col-12 col-md-6 col-xl-3">
+                                <label class="form-label small fw-bold"><i class="far fa-calendar text-primary"></i> Desde la semana</label>
+                                <input type="hidden" id="fDesde" name="desde" value="<?= escapar($filtros['desde']) ?>">
+                                <div class="bm-semana" data-target="fDesde" data-edge="inicio" data-par="fHasta" data-vacio="Sin límite"></div>
                             </div>
-                            <div class="col-6 col-md-3 col-xl-2">
-                                <label for="fHasta" class="form-label small fw-bold"><i class="far fa-calendar-check text-primary"></i> Hasta</label>
-                                <input type="date" id="fHasta" name="hasta" class="form-control form-control-sm" max="<?= $hoy ?>" value="<?= escapar($filtros['hasta']) ?>">
+                            <div class="col-12 col-md-6 col-xl-3">
+                                <label class="form-label small fw-bold"><i class="far fa-calendar-check text-primary"></i> Hasta la semana</label>
+                                <input type="hidden" id="fHasta" name="hasta" value="<?= escapar($filtros['hasta']) ?>">
+                                <div class="bm-semana" data-target="fHasta" data-edge="fin" data-par="fDesde" data-vacio="Sin límite"></div>
                             </div>
-                            <div class="col-12 col-xl-auto ms-xl-auto d-flex align-items-end gap-2">
-                                <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-search"></i> Aplicar filtros</button>
-                                <?php if ($hayFiltros): ?>
-                                    <a href="benchmark_tabla_comparativa.php" class="btn btn-light-secondary btn-sm"><i class="fas fa-eraser"></i> Limpiar</a>
-                                <?php endif; ?>
+                            <?php if ($hayFiltros): ?>
+                            <div class="col-12 col-xl-auto d-flex align-items-end">
+                                <a href="benchmark_tabla_comparativa.php" class="btn btn-light-secondary btn-sm" title="Quitar todos los filtros"><i class="fas fa-eraser"></i> Limpiar</a>
                             </div>
+                            <?php endif; ?>
                         </form>
                     </div>
                 </div>
@@ -157,115 +168,215 @@ function signo(float $n, int $dec = 2): string {
                 <!-- KPIs -->
                 <div class="row g-3 mb-4">
                     <div class="col-6 col-lg-3">
-                        <div class="card bm-card bm-kpi"><div class="card-body p-3 d-flex align-items-center">
+                        <div class="card bm-card bm-kpi"><div class="card-body p-2 px-3 d-flex align-items-center">
                             <div class="bm-kpi-icon bg-light-primary text-primary me-3"><i class="fas fa-layer-group"></i></div>
-                            <div><h6 class="text-muted small fw-bold mb-0">Productos comparados</h6><h4 class="fw-bold mb-0"><?= number_format($kpi['muestras']) ?></h4></div>
+                            <div><h6 class="text-muted small fw-bold mb-0">Productos comparados</h6><h4 class="fw-bold mb-0"><?= number_format($kpi['muestras']) ?></h4><small class="text-muted">Con su último precio levantado</small></div>
                         </div></div>
                     </div>
                     <div class="col-6 col-lg-3">
-                        <div class="card bm-card bm-kpi"><div class="card-body p-3 d-flex align-items-center">
+                        <div class="card bm-card bm-kpi"><div class="card-body p-2 px-3 d-flex align-items-center">
                             <div class="bm-kpi-icon bg-light-success text-success me-3"><i class="fas fa-check-circle"></i></div>
                             <div><h6 class="text-muted small fw-bold mb-0">Banasupro más barato</h6>
-                                <h4 class="fw-bold text-success mb-0"><?= number_format($kpi['barato']) ?> <span class="fs-6 fw-normal text-muted">(<?= $pct($kpi['barato']) ?>%)</span></h4></div>
+                                <h4 class="fw-bold text-success mb-0"><?= number_format($kpi['barato']) ?> <span class="fs-6 fw-normal text-muted">(<?= $pct($kpi['barato']) ?>%)</span></h4><small class="text-muted">Cobramos menos que la competencia</small></div>
                         </div></div>
                     </div>
                     <div class="col-6 col-lg-3">
-                        <div class="card bm-card bm-kpi"><div class="card-body p-3 d-flex align-items-center">
+                        <div class="card bm-card bm-kpi"><div class="card-body p-2 px-3 d-flex align-items-center">
                             <div class="bm-kpi-icon bg-light-danger text-danger me-3"><i class="fas fa-exclamation-triangle"></i></div>
                             <div><h6 class="text-muted small fw-bold mb-0">Banasupro más caro</h6>
-                                <h4 class="fw-bold text-danger mb-0"><?= number_format($kpi['caro']) ?> <span class="fs-6 fw-normal text-muted">(<?= $pct($kpi['caro']) ?>%)</span></h4></div>
+                                <h4 class="fw-bold text-danger mb-0"><?= number_format($kpi['caro']) ?> <span class="fs-6 fw-normal text-muted">(<?= $pct($kpi['caro']) ?>%)</span></h4><small class="text-muted">Cobramos más: conviene revisarlos</small></div>
                         </div></div>
                     </div>
                     <div class="col-6 col-lg-3">
-                        <div class="card bm-card bm-kpi"><div class="card-body p-3 d-flex align-items-center">
+                        <div class="card bm-card bm-kpi"><div class="card-body p-2 px-3 d-flex align-items-center">
                             <div class="bm-kpi-icon bg-light-info text-info me-3"><i class="fas fa-percent"></i></div>
                             <div><h6 class="text-muted small fw-bold mb-0">Brecha promedio</h6>
                                 <h4 class="fw-bold mb-0 <?= ($kpi['brecha'] ?? 0) >= 0 ? 'text-success' : 'text-danger' ?>"><?= $kpi['brecha'] === null ? '—' : signo($kpi['brecha']) . '%' ?></h4>
-                                <small class="text-muted">+ = competencia más cara</small></div>
+                                <small class="text-muted">+ Banasupro gana · − Banasupro más caro</small></div>
                         </div></div>
                     </div>
                 </div>
 
-                <!-- COMPARATIVA GLOBAL: FAMILIA x COMPETIDOR -->
-                <div class="card bm-card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h6 class="mb-0 fw-bold"><i class="fas fa-globe text-primary"></i> Comparativa global por familia y competidor</h6>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <small class="text-muted d-none d-md-inline">Productos según su último precio levantado</small>
-                            <?php
-                            $famGlobal = [];
-                            foreach ($globalFamComp as $g) { $famGlobal[(int)$g['id_familia']] = $g['familia']; }
-                            ?>
-                            <?php if (count($famGlobal) > 1): ?>
-                                <label for="fFamiliaGlobal" class="visually-hidden">Familia</label>
-                                <select id="fFamiliaGlobal" class="form-select form-select-sm" style="min-width: 190px">
-                                    <?php $primera = true; foreach ($famGlobal as $idF => $nomF): ?>
-                                        <option value="<?= (int)$idF ?>" <?= $primera ? 'selected' : '' ?>><?= escapar($nomF) ?></option>
-                                    <?php $primera = false; endforeach; ?>
-                                    <option value="">Todas las familias (<?= count($famGlobal) ?>)</option>
-                                </select>
-                            <?php endif; ?>
+                <!-- LO MÁS IMPORTANTE -->
+                <?php
+                $filaProducto = function (array $r, int $i, bool $caro) {
+                    $baseTxt = ($r['base_comparacion'] ?? 'unidad') === 'paquete' ? 'paquete' : 'unidad';
+                    $color = $caro ? 'text-danger' : 'text-success';
+                    ?>
+                    <tr>
+                        <td class="text-muted"><?= $i ?></td>
+                        <td>
+                            <strong class="d-block"><?= escapar(benchmark_etiqueta($r['nombre_producto'])) ?></strong>
+                            <small class="text-muted"><?= escapar($r['familia']) ?> · <?= escapar($r['competidor']) ?> · por <?= $baseTxt ?></small>
+                        </td>
+                        <td class="text-end text-nowrap">L. <?= number_format((float)$r['pp'], 2) ?></td>
+                        <td class="text-end text-nowrap">L. <?= number_format((float)$r['pc'], 2) ?></td>
+                        <td class="text-end text-nowrap fw-bold <?= $color ?>"><?= signo((float)$r['brecha'], 1) ?>%</td>
+                    </tr>
+                    <?php
+                };
+                $encabezadoProducto = '<thead class="table-light"><tr><th>#</th><th>Producto</th><th class="text-end">Banasupro</th><th class="text-end">Competencia</th><th class="text-end">Brecha</th></tr></thead>';
+                ?>
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-xl-8">
+                        <div class="card bm-card h-100">
+                            <div class="card-header pb-0 border-bottom-0">
+                                <ul class="nav nav-tabs card-header-tabs bm-tabs" role="tablist">
+                                    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabCaros" type="button" role="tab"><i class="fas fa-exclamation-triangle"></i> Para revisar · más caros</button></li>
+                                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabBaratos" type="button" role="tab"><i class="fas fa-thumbs-up"></i> Mayor ventaja</button></li>
+                                </ul>
+                            </div>
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="tabCaros" role="tabpanel">
+<div class="bm-ayuda"><i class="fas fa-info-circle"></i><span>Productos donde Banasupro cobra <strong>más</strong> que ese competidor. Una brecha de <strong>−12%</strong> significa que la competencia vende 12% más barato: son los primeros candidatos a revisar.</span></div>
+                                    <?php if (empty($rank['caros'])): ?>
+                                        <p class="text-center text-muted py-4 mb-0">Banasupro no está más caro en ningún producto con estos filtros.</p>
+                                    <?php else: ?>
+                                        <div class="bm-scroll"><table class="table table-sm align-middle mb-0"><?= $encabezadoProducto ?><tbody>
+                                            <?php foreach ($rank['caros'] as $i => $r) { $filaProducto($r, $i + 1, true); } ?>
+                                        </tbody></table></div>
+                                        <div class="bm-nota">De mayor a menor brecha · top <?= count($rank['caros']) ?></div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="tab-pane fade" id="tabBaratos" role="tabpanel">
+<div class="bm-ayuda"><i class="fas fa-info-circle"></i><span>Productos donde Banasupro cobra <strong>menos</strong>. Una brecha de <strong>+25%</strong> significa que la competencia cobra 25% más que nosotros: es nuestra ventaja.</span></div>
+                                    <?php if (empty($rank['baratos'])): ?>
+                                        <p class="text-center text-muted py-4 mb-0">Sin productos donde Banasupro sea más barato con estos filtros.</p>
+                                    <?php else: ?>
+                                        <div class="bm-scroll"><table class="table table-sm align-middle mb-0"><?= $encabezadoProducto ?><tbody>
+                                            <?php foreach ($rank['baratos'] as $i => $r) { $filaProducto($r, $i + 1, false); } ?>
+                                        </tbody></table></div>
+                                        <div class="bm-nota">De mayor a menor brecha · top <?= count($rank['baratos']) ?></div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    <div class="col-12 col-xl-4">
+                        <div class="card bm-card h-100">
+                            <div class="card-header pb-0 border-bottom-0">
+                                <ul class="nav nav-tabs card-header-tabs bm-tabs" role="tablist">
+                                    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabFamilias" type="button" role="tab"><i class="fas fa-tags"></i> Por familia</button></li>
+                                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCompetidores" type="button" role="tab"><i class="fas fa-store"></i> Por competidor</button></li>
+                                </ul>
+                            </div>
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="tabFamilias" role="tabpanel">
+<div class="bm-ayuda"><i class="fas fa-info-circle"></i><span>Cuántos productos de cada familia están más caros que la competencia. Barra más llena = más productos por revisar.</span></div>
+                                    <div class="bm-scroll bm-scroll-lista">
+                                    <?php if (empty($rank['familias'])): ?>
+                                        <p class="text-muted text-center py-4 mb-0">Sin familias con productos más caros.</p>
+                                    <?php else: foreach ($rank['familias'] as $r): $p = $r['productos'] > 0 ? round($r['caro'] / $r['productos'] * 100) : 0; ?>
+                                        <div class="bm-item-barra">
+                                            <div class="d-flex justify-content-between small"><strong><?= escapar($r['familia']) ?></strong><span class="text-danger fw-bold"><?= (int)$r['caro'] ?> de <?= (int)$r['productos'] ?> · <?= $p ?>%</span></div>
+                                            <div class="progress bm-barra"><div class="progress-bar bg-danger" style="width: <?= $p ?>%"></div></div>
+                                        </div>
+                                    <?php endforeach; endif; ?>
+                                    </div>
+                                    <div class="bm-nota">Productos donde Banasupro es más caro</div>
+                                </div>
+                                <div class="tab-pane fade" id="tabCompetidores" role="tabpanel">
+<div class="bm-ayuda"><i class="fas fa-info-circle"></i><span>En cuántos de los productos comparados cada cadena nos gana en precio. Barra más llena = competidor más agresivo.</span></div>
+                                    <div class="bm-scroll bm-scroll-lista">
+                                    <?php if (empty($rank['competidores'])): ?>
+                                        <p class="text-muted text-center py-4 mb-0">Sin datos con estos filtros.</p>
+                                    <?php else: foreach ($rank['competidores'] as $r): $p = $r['productos'] > 0 ? round($r['caro'] / $r['productos'] * 100) : 0; ?>
+                                        <div class="bm-item-barra">
+                                            <div class="d-flex justify-content-between small"><strong><?= escapar($r['competidor']) ?></strong><span class="text-danger fw-bold"><?= (int)$r['caro'] ?> de <?= (int)$r['productos'] ?> · <?= $p ?>%</span></div>
+                                            <div class="progress bm-barra"><div class="progress-bar bg-danger" style="width: <?= $p ?>%"></div></div>
+                                        </div>
+                                    <?php endforeach; endif; ?>
+                                    </div>
+                                    <div class="bm-nota">Productos donde nos superan</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RESUMEN POR FAMILIA (el desglose por competidor se abre con un clic) -->
+                <?php
+                $resumenFam = [];
+                foreach ($globalFamComp as $g) {
+                    $id = (int)$g['id_familia'];
+                    if (!isset($resumenFam[$id])) { $resumenFam[$id] = ['familia' => $g['familia'], 'productos' => 0, 'barato' => 0, 'caro' => 0, 'igual' => 0, 'suma' => 0.0, 'filas' => []]; }
+                    $resumenFam[$id]['productos'] += (int)$g['productos'];
+                    $resumenFam[$id]['barato'] += (int)$g['barato'];
+                    $resumenFam[$id]['caro'] += (int)$g['caro'];
+                    $resumenFam[$id]['igual'] += (int)$g['igual'];
+                    $resumenFam[$id]['suma'] += (float)$g['brecha'] * (int)$g['productos'];
+                    $resumenFam[$id]['filas'][] = $g;
+                }
+                // Primero las familias con mayor proporción de productos más caros
+                uasort($resumenFam, function ($a, $b) {
+                    $pa = $a['productos'] ? $a['caro'] / $a['productos'] : 0; $pb = $b['productos'] ? $b['caro'] / $b['productos'] : 0;
+                    return [$pb, $b['caro']] <=> [$pa, $a['caro']];
+                });
+                $barraProporcion = function (int $n, int $b, int $c) {
+                    $n = max(1, $n); $pb = round($b / $n * 100); $pc = round($c / $n * 100); $pi = max(0, 100 - $pb - $pc);
+                    echo '<div class="progress bm-barra" title="Más barato ' . $pb . '% · Más caro ' . $pc . '% · Igual ' . $pi . '%">'
+                       . '<div class="progress-bar bg-success" style="width:' . $pb . '%"></div><div class="progress-bar bg-secondary" style="width:' . $pi . '%"></div><div class="progress-bar bg-danger" style="width:' . $pc . '%"></div></div>';
+                };
+                ?>
+                <div class="card bm-card">
+                    <div class="card-header pb-0 border-bottom-0 d-flex justify-content-between align-items-end flex-wrap gap-2">
+                        <ul class="nav nav-tabs card-header-tabs bm-tabs" role="tablist">
+                            <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabDetalle" type="button" role="tab"><i class="bi bi-table"></i> Detalle de levantamientos <span class="badge bm-tab-badge"><?= number_format(count($detalles)) ?></span></button></li>
+                            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabResumen" type="button" role="tab"><i class="fas fa-layer-group"></i> Resumen por familia <span class="badge bm-tab-badge"><?= count($resumenFam) ?></span></button></li>
+                        </ul>
+                    </div>
+                    <div class="tab-content">
+                    <div class="tab-pane fade" id="tabResumen" role="tabpanel">
+<div class="bm-ayuda"><i class="fas fa-info-circle"></i><span>Una fila por familia, de más a menos productos caros. Barra: <span class="text-success fw-bold">verde</span> = Banasupro más barato, <span class="text-secondary fw-bold">gris</span> = igual, <span class="text-danger fw-bold">rojo</span> = más caro. Clic en una familia para ver cada competidor.</span></div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table align-middle mb-0 bm-tabla-movil">
+                            <table class="table align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Familia</th>
-                                        <th>Competidor</th>
                                         <th class="text-center">Productos</th>
-                                        <th class="text-center text-success">Banasupro más barato</th>
-                                        <th class="text-center text-danger">Banasupro más caro</th>
-                                        <th class="text-center">Igual</th>
-                                        <th style="min-width:180px">Proporción</th>
+                                        <th class="text-center text-danger">Más caro</th>
+                                        <th class="text-center text-success">Más barato</th>
+                                        <th style="min-width:160px">Proporción</th>
                                         <th class="text-end">Brecha prom.</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                <?php if (empty($globalFamComp)): ?>
-                                    <tr><td colspan="8" class="text-center text-muted py-4">No hay datos con los filtros elegidos.</td></tr>
-                                <?php else:
-                                    $famPrev = null;
-                                    foreach ($globalFamComp as $g):
-                                        $n = max(1, (int)$g['productos']);
-                                        $gB = round((int)$g['barato'] / $n * 100); $gC = round((int)$g['caro'] / $n * 100); $gI = max(0, 100 - $gB - $gC);
-                                        $gBr = $g['brecha'] === null ? null : (float)$g['brecha'];
-                                        $nuevaFam = $famPrev !== $g['id_familia'];
-                                        $famPrev = $g['id_familia'];
-                                ?>
-                                    <tr data-familia="<?= (int)$g['id_familia'] ?>" class="<?= $nuevaFam ? 'border-top border-2 bm-fam-nueva' : 'bm-fam-repetida' ?><?= (count($famGlobal) > 1 && (int)$g['id_familia'] !== (int)array_key_first($famGlobal)) ? ' d-none' : '' ?>">
-                                        <td class="fw-bold bm-td-titulo" data-label="Familia"><?= escapar($g['familia']) ?></td>
-                                        <td data-label="Competidor"><i class="fas fa-store text-muted"></i> <?= escapar($g['competidor']) ?></td>
-                                        <td class="text-center" data-label="Productos"><?= (int)$g['productos'] ?></td>
-                                        <td class="text-center" data-label="Más barato"><span class="badge bg-light-success text-success"><?= (int)$g['barato'] ?></span></td>
-                                        <td class="text-center" data-label="Más caro"><span class="badge bg-light-danger text-danger"><?= (int)$g['caro'] ?></span></td>
-                                        <td class="text-center" data-label="Igual"><span class="badge bg-light-secondary text-secondary"><?= (int)$g['igual'] ?></span></td>
-                                        <td class="bm-td-barra">
-                                            <div class="progress bm-barra" title="Más barato <?= $gB ?>% · Más caro <?= $gC ?>% · Igual <?= $gI ?>%">
-                                                <div class="progress-bar bg-success" style="width: <?= $gB ?>%"></div>
-                                                <div class="progress-bar bg-secondary" style="width: <?= $gI ?>%"></div>
-                                                <div class="progress-bar bg-danger" style="width: <?= $gC ?>%"></div>
-                                            </div>
-                                        </td>
-                                        <td class="text-end fw-bold text-nowrap <?= ($gBr ?? 0) >= 0 ? 'text-success' : 'text-danger' ?>" data-label="Brecha prom."><?= $gBr === null ? '—' : signo($gBr) . '%' ?></td>
+                                <?php if (empty($resumenFam)): ?>
+                                    <tr><td colspan="6" class="text-center text-muted py-4">No hay datos con los filtros elegidos.</td></tr>
+                                <?php else: foreach ($resumenFam as $idF => $rf):
+                                    $br = $rf['productos'] > 0 ? $rf['suma'] / $rf['productos'] : null; ?>
+                                    <tr class="bm-fam-toggle" data-fam="<?= (int)$idF ?>" role="button" tabindex="0" aria-expanded="false">
+                                        <td class="fw-bold"><i class="fas fa-chevron-right bm-chev text-muted me-2"></i><?= escapar($rf['familia']) ?></td>
+                                        <td class="text-center"><?= (int)$rf['productos'] ?></td>
+                                        <td class="text-center"><span class="badge bg-light-danger text-danger"><?= (int)$rf['caro'] ?></span></td>
+                                        <td class="text-center"><span class="badge bg-light-success text-success"><?= (int)$rf['barato'] ?></span></td>
+                                        <td><?php $barraProporcion($rf['productos'], $rf['barato'], $rf['caro']); ?></td>
+                                        <td class="text-end fw-bold text-nowrap <?= ($br ?? 0) >= 0 ? 'text-success' : 'text-danger' ?>"><?= $br === null ? '—' : signo($br) . '%' ?></td>
                                     </tr>
+                                    <?php foreach ($rf['filas'] as $g): $gBr = $g['brecha'] === null ? null : (float)$g['brecha']; ?>
+                                    <tr class="bm-fam-det d-none" data-fam="<?= (int)$idF ?>">
+                                        <td class="ps-5 small"><i class="fas fa-store text-muted"></i> <?= escapar($g['competidor']) ?></td>
+                                        <td class="text-center small"><?= (int)$g['productos'] ?></td>
+                                        <td class="text-center small"><?= (int)$g['caro'] ?></td>
+                                        <td class="text-center small"><?= (int)$g['barato'] ?></td>
+                                        <td><?php $barraProporcion((int)$g['productos'], (int)$g['barato'], (int)$g['caro']); ?></td>
+                                        <td class="text-end small fw-bold text-nowrap <?= ($gBr ?? 0) >= 0 ? 'text-success' : 'text-danger' ?>"><?= $gBr === null ? '—' : signo($gBr) . '%' ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
                                 <?php endforeach; endif; ?>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                     <div class="card-footer small text-muted">
-                        Ejemplo de lectura: <em>Leches · Competidor X · 5 más barato / 2 más caro</em> = de 7 productos comparados, Banasupro cobra menos en 5 y más en 2. Brecha positiva = la competencia es más cara.
+                        Cuenta productos según su último precio levantado dentro de los filtros. Brecha positiva = la competencia es más cara.
                     </div>
-                </div>
+                    </div>
 
-                <!-- DETALLE -->
-                <div class="card bm-card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0 fw-bold"><i class="bi bi-table text-primary"></i> Detalle de levantamientos</h6>
-                        <small class="text-muted">Precios por unidad (L.)</small>
-                    </div>
+                    <!-- DETALLE -->
+                    <div class="tab-pane fade show active" id="tabDetalle" role="tabpanel">
+<div class="bm-ayuda"><i class="fas fa-info-circle"></i><span>Cada fila es un precio levantado en una visita. <strong>Dif. %</strong> = (competencia − Banasupro) ÷ Banasupro: positivo = Banasupro más barato, negativo = más caro. Precios por unidad, salvo donde diga paquete.</span></div>
                     <div class="card-body">
                         <?php if ($truncado): ?>
                             <div class="alert alert-warning py-2 small">Se muestran las <?= number_format(LIMITE_FILAS) ?> visitas más recientes. Afina los filtros o exporta para ver todo.</div>
@@ -274,19 +385,14 @@ function signo(float $n, int $dec = 2): string {
                             <table class="table table-hover align-middle" id="table1">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>N.</th>
                                         <th>Competidor</th>
                                         <th>Fecha</th>
                                         <th>Familia</th>
-                                        <th>Categoría</th>
-                                        <th>Subcategoría</th>
                                         <th>Producto y presentación</th>
                                         <th class="text-end">Precio Banasupro</th>
                                         <th class="text-end">Precio competencia</th>
-                                        <th class="text-end">Dif. (L.)</th>
                                         <th class="text-end">Dif. %</th>
                                         <th class="text-center">Estatus</th>
-                                        <th>Notas</th>
                                         <th class="text-center">Ver</th>
                                     </tr>
                                 </thead>
@@ -303,35 +409,32 @@ function signo(float $n, int $dec = 2): string {
                                     else               { $estatus = '<span class="badge bg-secondary">Mismo precio</span>'; $color = 'text-muted'; }
                                     $linkAnalisis = 'benchmark_analisis.php?' . http_build_query([
                                         'id_producto' => (int)$row['id_producto'],
-                                        'desde' => date('Y-m-d', strtotime('-89 days')),
+                                        'desde' => date('Y-m-d', strtotime('monday this week -11 weeks')),
                                         'hasta' => $hoy,
                                     ]);
                                 ?>
                                     <tr>
-                                        <td><?= $n ?></td>
                                         <td><strong><?= escapar($row['competidor']) ?></strong></td>
                                         <td data-order="<?= escapar($row['fecha_levantamiento']) ?>"><?= !empty($row['fecha_levantamiento']) ? date('d/m/Y', strtotime($row['fecha_levantamiento'])) : '-' ?></td>
                                         <td><span class="badge bg-light-primary"><?= escapar($row['familia']) ?></span></td>
-                                        <td class="small"><?= escapar(benchmark_etiqueta($row['categoria'])) ?></td>
-                                        <td class="small"><?= escapar(benchmark_etiqueta($row['subcategoria'])) ?></td>
                                         <td><?= escapar(benchmark_etiqueta($row['nombre_producto'])) ?></td>
                                         <td class="text-end text-nowrap fw-bold text-primary">L. <?= number_format($propio, 2) ?><small class="d-block fw-normal text-muted"><?= $baseTxt ?></small></td>
                                         <td class="text-end text-nowrap fw-bold">L. <?= number_format($comp, 2) ?><small class="d-block fw-normal text-muted"><?= $baseTxt ?></small></td>
-                                        <td class="text-end text-nowrap <?= $color ?>"><?= signo($dif) ?></td>
                                         <td class="text-end text-nowrap <?= $color ?>"><?= signo($difPct) ?>%</td>
                                         <td class="text-center"><?= $estatus ?></td>
-                                        <td><?= escapar($row['observaciones'] ?: '-') ?></td>
                                         <td class="text-center">
                                             <a href="<?= escapar($linkAnalisis) ?>" class="btn btn-sm btn-outline-primary" title="Ver evolución de este producto en el análisis"><i class="fas fa-chart-line"></i></a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
                                 <?php if ($n === 0): ?>
-                                    <tr><td colspan="14" class="text-center text-muted py-4">No hay registros con los filtros elegidos.</td></tr>
+                                    <tr><td colspan="9" class="text-center text-muted py-4">No hay registros con los filtros elegidos.</td></tr>
                                 <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                    </div>
                     </div>
                 </div>
 
@@ -343,20 +446,23 @@ function signo(float $n, int $dec = 2): string {
 
     <script src="../../assets/js/bootstrap.bundle.min.js"></script>
     <script src="../../assets/vendors/simple-datatables/simple-datatables.js"></script>
+    <script src="../../js/benchmark_js/benchmark_semanas.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Comparativa global: ver una familia a la vez (o todas)
-            const selFam = document.getElementById('fFamiliaGlobal');
-            if (selFam) {
-                const filas = document.querySelectorAll('tr[data-familia]');
-                const aplicar = function () {
-                    filas.forEach(function (tr) {
-                        tr.classList.toggle('d-none', selFam.value !== '' && tr.dataset.familia !== selFam.value);
-                    });
+            // Filtros automáticos: cualquier cambio aplica de inmediato (sin botón)
+            const formFiltros = document.getElementById('formFiltros');
+            if (formFiltros) formFiltros.addEventListener('change', function () { formFiltros.submit(); });
+
+            // Resumen por familia: clic (o Enter) despliega el detalle por competidor
+            document.querySelectorAll('.bm-fam-toggle').forEach(function (fila) {
+                const alternar = function () {
+                    const abierta = fila.classList.toggle('abierta');
+                    fila.setAttribute('aria-expanded', abierta ? 'true' : 'false');
+                    document.querySelectorAll('tr.bm-fam-det[data-fam="' + fila.dataset.fam + '"]').forEach(function (d) { d.classList.toggle('d-none', !abierta); });
                 };
-                selFam.addEventListener('change', aplicar);
-                aplicar();
-            }
+                fila.addEventListener('click', alternar);
+                fila.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); } });
+            });
 
             const tabla = document.querySelector('#table1');
             if (tabla && tabla.querySelector('tbody tr td[colspan]') === null) {

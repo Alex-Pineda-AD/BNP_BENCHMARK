@@ -33,7 +33,8 @@ try {
 }
 
 $hoy = date('Y-m-d');
-$hace30 = date('Y-m-d', strtotime('-29 days'));
+// Por defecto: últimas 4 semanas (lunes de hace 3 semanas hasta hoy)
+$hace30 = date('Y-m-d', strtotime('monday this week -3 weeks'));
 
 // Valores iniciales desde la URL (enlace de la tabla comparativa): fechas y producto
 function an_fecha($valor, string $defecto): string
@@ -114,26 +115,19 @@ function escapar($valor) {
                 <div class="card kpi-card mb-4">
                     <div class="card-body">
                         <form id="formFiltros" class="row g-3 align-items-end" autocomplete="off">
-                            <div class="col-6 col-md-3 col-xl-2">
-                                <label for="fDesde" class="form-label small fw-bold mb-1">Desde</label>
-                                <input type="date" id="fDesde" class="form-control" value="<?= escapar($desdeInicial) ?>" max="<?= escapar($hoy) ?>">
-                            </div>
-                            <div class="col-6 col-md-3 col-xl-2">
-                                <label for="fHasta" class="form-label small fw-bold mb-1">Hasta</label>
-                                <input type="date" id="fHasta" class="form-control" value="<?= escapar($hastaInicial) ?>" max="<?= escapar($hoy) ?>">
+                            <div class="col-12 col-md-6 col-xl-3">
+                                <label class="form-label small fw-bold mb-1">Desde la semana</label>
+                                <input type="hidden" id="fDesde" value="<?= escapar($desdeInicial) ?>">
+                                <div class="bm-semana" data-target="fDesde" data-edge="inicio" data-par="fHasta"></div>
                             </div>
                             <div class="col-12 col-md-6 col-xl-3">
-                                <label class="form-label small fw-bold mb-1 d-block">Atajos</label>
-                                <div class="btn-group w-100" role="group" aria-label="Rangos rápidos">
-                                    <button type="button" class="btn btn-outline-primary btn-sm" data-dias="7">7 días</button>
-                                    <button type="button" class="btn btn-outline-primary btn-sm" data-dias="30">30 días</button>
-                                    <button type="button" class="btn btn-outline-primary btn-sm" data-dias="90">90 días</button>
-                                    <button type="button" class="btn btn-outline-primary btn-sm" data-dias="mes">Este mes</button>
-                                </div>
+                                <label class="form-label small fw-bold mb-1">Hasta la semana</label>
+                                <input type="hidden" id="fHasta" value="<?= escapar($hastaInicial) ?>">
+                                <div class="bm-semana" data-target="fHasta" data-edge="fin" data-par="fDesde"></div>
                             </div>
                             <div class="col-6 col-md-4 col-xl-2">
                                 <label for="fCompetidor" class="form-label small fw-bold mb-1">Competidor</label>
-                                <select id="fCompetidor" class="form-select">
+                                <select id="fCompetidor" class="form-select form-select-sm">
                                     <option value="">Todos</option>
                                     <?php foreach ($competidores as $c): ?>
                                         <option value="<?= (int)$c['id'] ?>">
@@ -144,22 +138,32 @@ function escapar($valor) {
                             </div>
                             <div class="col-6 col-md-4 col-xl-2">
                                 <label for="fFamilia" class="form-label small fw-bold mb-1">Familia</label>
-                                <select id="fFamilia" class="form-select">
+                                <select id="fFamilia" class="form-select form-select-sm">
                                     <option value="">Todas</option>
                                     <?php foreach ($familias as $fam): ?>
                                         <option value="<?= (int)$fam['id'] ?>"><?= escapar($fam['nombre']) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="col-6 col-md-2 col-xl-1">
+                            <div class="col-12 col-md-4 col-xl-2">
                                 <label for="fAgrupar" class="form-label small fw-bold mb-1">Agrupar</label>
-                                <select id="fAgrupar" class="form-select">
+                                <select id="fAgrupar" class="form-select form-select-sm">
                                     <option value="semana" selected>Semana</option>
                                     <option value="dia">Día</option>
                                 </select>
                             </div>
-                            <div class="col-6 col-md-2 col-xl-12 text-xl-end">
-                                <button type="button" id="btnLimpiar" class="btn btn-light-secondary">
+                            <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <span class="small fw-bold text-muted">Atajos:</span>
+                                    <div class="btn-group" role="group" aria-label="Rangos rápidos">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" data-atajo="esta">Esta semana</button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" data-atajo="pasada">Semana pasada</button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" data-atajo="4">Últimas 4</button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" data-atajo="8">Últimas 8</button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" data-atajo="12">Últimas 12</button>
+                                    </div>
+                                </div>
+                                <button type="button" id="btnLimpiar" class="btn btn-light-secondary btn-sm">
                                     <i class="fas fa-eraser"></i> Limpiar
                                 </button>
                             </div>
@@ -311,6 +315,7 @@ function escapar($valor) {
         // Producto sugerido por el enlace de la tabla comparativa (null si se entra directo)
         const BENCHMARK_INICIAL = { id_producto: <?= $productoInicial === null ? 'null' : (int)$productoInicial ?> };
     </script>
+    <script src="../../js/benchmark_js/benchmark_semanas.js"></script>
     <script src="../../js/benchmark_js/benchmark_analisis.js"></script>
     <script src="../../assets/js/main.js"></script>
 </body>

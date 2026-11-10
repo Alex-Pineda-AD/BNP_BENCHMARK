@@ -121,8 +121,7 @@ try {
     if ($filtros['categoria'] !== null)    { $partes[] = 'Categoría: ' . benchmark_etiqueta($filtros['categoria']); }
     if ($filtros['subcategoria'] !== null) { $partes[] = 'Subcategoría: ' . benchmark_etiqueta($filtros['subcategoria']); }
     if ($filtros['desde'] !== null || $filtros['hasta'] !== null) {
-        $partes[] = 'Fechas: ' . ($filtros['desde'] ? date('d/m/Y', strtotime($filtros['desde'])) : 'inicio')
-                  . ' al ' . ($filtros['hasta'] ? date('d/m/Y', strtotime($filtros['hasta'])) : 'hoy');
+        $partes[] = benchmark_texto_semanas($filtros['desde'], $filtros['hasta']);
     }
     if ($filtros['estatus'] !== null) {
         $partes[] = 'Estatus: ' . ['barato' => 'Banasupro más barato', 'caro' => 'Banasupro más caro', 'igual' => 'Mismo precio'][$filtros['estatus']];

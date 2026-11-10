@@ -40,23 +40,21 @@ function leerFiltros() {
     return p;
 }
 
-function aplicarAtajo(dias) {
-    const hoy = new Date();
-    const desde = new Date(hoy);
-    if (dias === 'mes') desde.setDate(1);
-    else desde.setDate(hoy.getDate() - (Number(dias) - 1));
-    el('fDesde').value = fechaLocal(desde);
-    el('fHasta').value = fechaLocal(hoy);
+function aplicarAtajo(atajo) {
+    const S = window.BenchmarkSemanas;
+    const r = atajo === 'esta' ? S.ultimas(1) : (atajo === 'pasada' ? S.pasada(1) : S.ultimas(Number(atajo)));
+    el('fDesde').value = r.desde;
+    el('fHasta').value = r.hasta;
+    S.sincronizar();
     el('fProducto').value = '';
     cargar();
 }
 
 function limpiarFiltros() {
-    const hoy = new Date();
-    const desde = new Date(hoy);
-    desde.setDate(hoy.getDate() - 29);
-    el('fDesde').value = fechaLocal(desde);
-    el('fHasta').value = fechaLocal(hoy);
+    const r = window.BenchmarkSemanas.ultimas(4);
+    el('fDesde').value = r.desde;
+    el('fHasta').value = r.hasta;
+    window.BenchmarkSemanas.sincronizar();
     el('fCompetidor').value = '';
     el('fFamilia').value = '';
     el('fAgrupar').value = 'semana';
@@ -295,6 +293,6 @@ document.addEventListener('DOMContentLoaded', () => {
     el('fProducto').addEventListener('change', cargar);
     el('btnLimpiar').addEventListener('click', limpiarFiltros);
     el('formFiltros').addEventListener('submit', (e) => { e.preventDefault(); cargar(); });
-    document.querySelectorAll('[data-dias]').forEach((b) => b.addEventListener('click', () => aplicarAtajo(b.dataset.dias)));
+    document.querySelectorAll('[data-atajo]').forEach((b) => b.addEventListener('click', () => aplicarAtajo(b.dataset.atajo)));
     cargar();
 });

@@ -144,3 +144,72 @@
 @media (min-width: 768px) and (max-width: 1199.98px) {
     .bm-kpi h4 { font-size: 1.25rem; }
 }
+
+/* Selector de semana del año (benchmark_semanas.js): año + semana en una sola fila */
+.bm-semana-ui { display: flex; gap: .4rem; }
+.bm-semana-ui .bm-semana-anio { flex: 0 0 40%; min-width: 0; }
+.bm-semana-ui .bm-semana-sem { flex: 1 1 auto; min-width: 0; }
+
+/* Levantamientos: selector de vista (Softland / manejo en ventas) */
+.bm-vistas .btn { font-weight: 600; }
+.bm-vistas .btn.active { color: #435ebe; }
+.bm-ruta { display: none; }
+#matrizProductos.vista-familia .bm-ruta { display: inline-block; }
+#matrizProductos.vista-familia .bm-badge-familia { display: none; }
+
+/* Tabla comparativa: resumen por familia desplegable */
+.bm-fam-toggle { cursor: pointer; }
+.bm-fam-toggle:hover { background: #f5f7fd; }
+.bm-fam-toggle .bm-chev { transition: transform .2s; font-size: .75rem; }
+.bm-fam-toggle.abierta .bm-chev { transform: rotate(90deg); }
+.bm-fam-det td { background: #f8f9fc; }
+
+/* Tabla comparativa: paneles compactos con pestañas */
+.bm-tabs .nav-link { font-weight: 600; font-size: .9rem; color: #6c7a99; padding: .5rem .9rem; }
+.bm-tabs .nav-link.active { color: #435ebe; }
+.bm-scroll { max-height: 340px; overflow-y: auto; }
+.bm-scroll-lista { padding: .9rem 1rem .25rem; }
+.bm-scroll thead th { position: sticky; top: 0; z-index: 1; background: #f2f3f7; }
+.bm-scroll .table td, .bm-scroll .table th { padding-top: .4rem; padding-bottom: .4rem; font-size: .85rem; }
+.bm-item-barra { margin-bottom: .7rem; }
+.bm-nota { padding: .4rem 1rem; font-size: .75rem; color: #8a97b5; border-top: 1px solid #eef0f4; }
+
+/* Corrige el margen negativo que Bootstrap pone a .card-header-tabs (montaba el contenido sobre las pestañas) */
+.bm-card > .card-header.pb-0 { padding: .6rem 1rem 0; border-bottom: 1px solid #eef0f4 !important; }
+.bm-card .bm-tabs { margin: 0 !important; border-bottom: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+.bm-card .bm-tabs .nav-link { white-space: nowrap; border-radius: .5rem .5rem 0 0; }
+
+/* Línea de ayuda que explica cada gráfico o tabla */
+.bm-ayuda { display: flex; align-items: flex-start; gap: .5rem; padding: .55rem 1rem; font-size: .78rem; line-height: 1.35; color: #5f6d8c; background: #f8f9fc; border-bottom: 1px solid #eef0f4; }
+.bm-ayuda i { color: #435ebe; margin-top: .15rem; }
+
+/* Pestañas bien visibles: la activa va rellena en azul, las demás como botones claros con borde */
+.bm-card .bm-tabs { gap: .4rem; padding-bottom: .6rem; }
+.bm-card > .card-header.pb-0 { padding-bottom: .6rem; }
+.bm-card .bm-tabs .nav-link { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid #d9def0; border-radius: .6rem; background: #f4f6fc; color: #435ebe; font-weight: 600; padding: .45rem .95rem; transition: background-color .2s, color .2s, border-color .2s; }
+.bm-card .bm-tabs .nav-link i { color: #7c8db5; }
+.bm-card .bm-tabs .nav-link:hover { background: #e8ecf9; border-color: #c3cbe8; }
+.bm-card .bm-tabs .nav-link.active { background: #435ebe; border-color: #435ebe; color: #fff; box-shadow: 0 2px 6px rgba(67, 94, 190, .3); }
+.bm-card .bm-tabs .nav-link.active i { color: #fff; }
+.bm-tab-badge { background: rgba(67, 94, 190, .12); color: #435ebe; font-weight: 700; }
+.bm-tabs .nav-link.active .bm-tab-badge { background: rgba(255, 255, 255, .25); color: #fff; }
+
+/* Levantamientos: selector de vista como pestañas grandes (celular, tablet y escritorio) */
+.bm-vistas-barra { padding: .75rem 1rem .6rem; background: #f8f9fc; border-bottom: 1px solid #e3e7f1; }
+.bm-vistas { display: flex; gap: .5rem; }
+.bm-vista-btn { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 46px; padding: .5rem .9rem; border: 1px solid #d9def0; border-radius: .7rem; background: #fff; color: #435ebe; font-weight: 700; font-size: .95rem; line-height: 1.2; text-align: center; cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; }
+.bm-vista-btn i { color: #7c8db5; }
+.bm-vista-btn:hover { background: #eef1fb; border-color: #c3cbe8; }
+.bm-vista-btn.active { background: #435ebe; border-color: #435ebe; color: #fff; box-shadow: 0 2px 6px rgba(67, 94, 190, .3); }
+.bm-vista-btn.active i { color: #fff; }
+.bm-vista-btn:focus-visible { outline: 2px solid #435ebe; outline-offset: 2px; }
+.bm-vista-num { min-width: 1.6rem; padding: .1rem .45rem; border-radius: 1rem; background: rgba(67, 94, 190, .12); color: #435ebe; font-size: .78rem; font-weight: 700; }
+.bm-vista-btn.active .bm-vista-num { background: rgba(255, 255, 255, .25); color: #fff; }
+.bm-vistas-ayuda { margin-top: .5rem; font-size: .78rem; line-height: 1.35; color: #5f6d8c; }
+.bm-vistas-ayuda i { color: #435ebe; }
+@media (max-width: 575.98px) {
+    .bm-vistas-barra { padding: .6rem .6rem .5rem; }
+    .bm-vista-btn { min-height: 52px; padding: .45rem .5rem; font-size: .88rem; flex-direction: column; gap: .15rem; }
+    .bm-vista-num { font-size: .72rem; }
+    .bm-vistas-ayuda { font-size: .74rem; }
+}

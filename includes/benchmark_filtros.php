@@ -168,3 +168,61 @@ function benchmark_kpis_desde_resumen(array $resumen): array
     }
     return $k;
 }
+
+/**
+ * Texto del rango de fechas por semanas ISO (lunes a domingo) para encabezados de exportes.
+ * "Semana 36 (31/08 al 06/09/2026)" o "Semanas 36 a 40 (31/08/2026 al 04/10/2026)".
+ */
+function benchmark_texto_semanas(?string $desde, ?string $hasta): string
+{
+    $d = $desde ? new DateTimeImmutable($desde) : null;
+    $h = $hasta ? new DateTimeImmutable($hasta) : null;
+    if ($d === null && $h === null) { return ''; }
+    if ($d === null) { return 'Hasta la semana ' . (int)$h->format('W') . ' (' . $h->format('d/m/Y') . ')'; }
+    if ($h === null) { return 'Desde la semana ' . (int)$d->format('W') . ' (' . $d->format('d/m/Y') . ')'; }
+    if ($d->format('o-W') === $h->format('o-W')) {
+        return 'Semana ' . (int)$d->format('W') . ' (' . $d->format('d/m') . ' al ' . $h->format('d/m/Y') . ')';
+    }
+    return 'Semanas ' . (int)$d->format('W') . ' a ' . (int)$h->format('W') . ' (' . $d->format('d/m/Y') . ' al ' . $h->format('d/m/Y') . ')';
+}
+
+/**
+ * Rankings para el panel "Lo más importante" de la tabla comparativa. Misma base que el resumen por
+ * familia (último precio levantado de cada producto por competidor, dentro de los filtros), así los
+ * números coinciden. Brecha = (competencia - Banasupro) / Banasupro: negativa = Banasupro más caro.
+ * @return array{caros:array,baratos:array,familias:array,competidores:array}
+ */
+function benchmark_rankings(PDO $pdo, string $where, array $params, int $limiteCaros = 10, int $limiteBaratos = 5): array
+{
+    $ultimos = "
+        SELECT DISTINCT ON (l.id_competidor, d.id_producto)
+               f.id AS id_familia, f.nombre AS familia,
+               c.id AS id_competidor, " . BENCHMARK_COMPETIDOR_NOMBRE . " AS competidor,
+               p.id AS id_producto, p.nombre_producto, d.base_comparacion,
+               d.precio_competencia AS pc, " . BENCHMARK_PRECIO_PROPIO . " AS pp
+        " . BENCHMARK_FROM_BASE . "
+        WHERE $where
+        ORDER BY l.id_competidor, d.id_producto, l.fecha_levantamiento DESC, d.id DESC";
+
+    $consulta = function (string $sql) use ($pdo, $params): array {
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        return array_map(fn($r) => array_change_key_case($r, CASE_LOWER), $st->fetchAll(PDO::FETCH_ASSOC));
+    };
+
+    return [
+        'caros' => $consulta("SELECT u.*, (u.pc - u.pp) / u.pp * 100 AS brecha FROM ($ultimos) u
+                              WHERE u.pp > 0 AND u.pc < u.pp ORDER BY brecha ASC, u.nombre_producto LIMIT " . (int)$limiteCaros),
+        'baratos' => $consulta("SELECT u.*, (u.pc - u.pp) / u.pp * 100 AS brecha FROM ($ultimos) u
+                                WHERE u.pp > 0 AND u.pc > u.pp ORDER BY brecha DESC, u.nombre_producto LIMIT " . (int)$limiteBaratos),
+        'familias' => $consulta("SELECT u.id_familia, u.familia, COUNT(*) AS productos,
+                                        COUNT(*) FILTER (WHERE u.pc < u.pp) AS caro, COUNT(*) FILTER (WHERE u.pc > u.pp) AS barato
+                                 FROM ($ultimos) u GROUP BY u.id_familia, u.familia
+                                 HAVING COUNT(*) FILTER (WHERE u.pc < u.pp) > 0
+                                 ORDER BY caro DESC, productos ASC, u.familia LIMIT 6"),
+        'competidores' => $consulta("SELECT u.id_competidor, u.competidor, COUNT(*) AS productos,
+                                            COUNT(*) FILTER (WHERE u.pc < u.pp) AS caro, COUNT(*) FILTER (WHERE u.pc > u.pp) AS barato
+                                     FROM ($ultimos) u GROUP BY u.id_competidor, u.competidor
+                                     ORDER BY caro DESC, u.competidor"),
+    ];
+}

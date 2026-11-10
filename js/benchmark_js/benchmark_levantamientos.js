@@ -311,3 +311,48 @@ function actualizarPreciosEnSegundoPlano() {
         .catch(err => console.warn('No se pudo actualizar en segundo plano:', err));
 }
 document.addEventListener('DOMContentLoaded', actualizarPreciosEnSegundoPlano);
+
+// ---------- Vistas: "Listado por Softland" / "Listado por manejo en ventas" ----------
+// Las filas se renderizan una sola vez y se MUEVEN entre las dos estructuras (no se duplican),
+// así lo capturado, el estado "guardado" y los contadores siguen siendo los mismos en ambas vistas.
+const CLAVE_VISTA_LEVANTAMIENTO = 'bm_lev_vista';
+
+function aplicarVista(vista) {
+    const porFamilia = vista === 'familia';
+    const filas = Array.from(document.querySelectorAll('.fila-producto[data-destino-softland]'));
+    filas.sort(porFamilia
+        ? (a, b) => a.querySelector('.nombre-producto').textContent.localeCompare(b.querySelector('.nombre-producto').textContent, 'es')
+        : (a, b) => Number(a.dataset.orden) - Number(b.dataset.orden));
+    filas.forEach(fila => {
+        const destino = porFamilia
+            ? document.getElementById(fila.dataset.destinoFamilia)
+            : document.querySelector('#' + fila.dataset.destinoSoftland + ' .bm-acordeon-cuerpo');
+        if (destino) { destino.appendChild(fila); }
+    });
+    // Franjas alternas de cada lista tras el movimiento
+    document.querySelectorAll('#matrizProductos .bm-acordeon-cuerpo').forEach(lista => {
+        Array.from(lista.children).filter(f => f.classList.contains('fila-producto'))
+            .forEach((f, j) => f.classList.toggle('bg-light', j % 2 === 1));
+    });
+
+    const matriz = document.getElementById('matrizProductos');
+    if (matriz) { matriz.classList.toggle('vista-familia', porFamilia); }
+    const vSoftland = document.getElementById('vistaSoftland');
+    const vFamilia = document.getElementById('vistaFamilia');
+    if (vSoftland) { vSoftland.classList.toggle('d-none', porFamilia); }
+    if (vFamilia) { vFamilia.classList.toggle('d-none', !porFamilia); }
+    document.querySelectorAll('.bm-vistas [data-vista]').forEach(b => {
+        const activo = b.dataset.vista === (porFamilia ? 'familia' : 'softland');
+        b.classList.toggle('active', activo);
+        b.setAttribute('aria-pressed', activo ? 'true' : 'false');
+    });
+    try { localStorage.setItem(CLAVE_VISTA_LEVANTAMIENTO, porFamilia ? 'familia' : 'softland'); } catch (e) { /* sin almacenamiento: no pasa nada */ }
+    actualizarContadores();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.bm-vistas [data-vista]').forEach(b => b.addEventListener('click', () => aplicarVista(b.dataset.vista)));
+    let guardada = null;
+    try { guardada = localStorage.getItem(CLAVE_VISTA_LEVANTAMIENTO); } catch (e) { guardada = null; }
+    if (guardada === 'familia') { aplicarVista('familia'); }
+});
