@@ -277,6 +277,7 @@ document.addEventListener('DOMContentLoaded', actualizarContadores);
 
 // ---------- Precios al día (en segundo plano) ----------
 // Si los precios guardados tienen más de una hora, se pide la actualización a Softland sin detener la pantalla.
+// Es silenciosa: no muestra avisos; solo actualiza la etiqueta "Última". Los precios nuevos se ven al recargar.
 function actualizarPreciosEnSegundoPlano() {
     if (typeof BENCHMARK_SYNC_VENCIDA === 'undefined' || !BENCHMARK_SYNC_VENCIDA) {
         return;
@@ -293,19 +294,6 @@ function actualizarPreciosEnSegundoPlano() {
             const etiqueta = document.getElementById('bmUltimaSync');
             if (etiqueta) {
                 etiqueta.textContent = 'Última: ' + data.hora;
-            }
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    toast: true,
-                    position: 'bottom-end',
-                    icon: 'info',
-                    title: 'Precios actualizados desde Softland',
-                    showConfirmButton: true,
-                    confirmButtonText: 'Ver cambios',
-                    showCloseButton: true,
-                    timer: 20000,
-                    timerProgressBar: true
-                }).then(res => { if (res.isConfirmed) { window.location.reload(); } });
             }
         })
         .catch(err => console.warn('No se pudo actualizar en segundo plano:', err));
